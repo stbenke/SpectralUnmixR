@@ -21,7 +21,7 @@ First install flowCore from Bioconductor, then SpectralUnmixR and its dependenci
 if (!requireNamespace("BiocManager", quietly = TRUE))
   install.packages("BiocManager")
 
-BiocManager::install(c("flowCore", "flowVS"))
+BiocManager::install(c("flowCore"))
 
 if (!requireNamespace("devtools", quietly = TRUE))
   install.packages("devtools")

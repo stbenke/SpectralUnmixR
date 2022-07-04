@@ -1,0 +1,245 @@
+---
+title: "Spectral unmixing"
+author: "Stephan Benke"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{Spectral unmixing}
+  %\VignetteDepends{SpectralUnmixR}
+  %\VignettePackage{SpectralUnmixR}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r, include = FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>"
+)
+```
+
+# Spectral unmixing
+
+The following script demonstrates how to use the SpectralUnmixR package for spectral unmixing of flow cytometry data.
+
+*Note to Aurora users*: Files are processed just like they were recorded, no normalization of files recorded at different gains is done (like in SpectroFlo). 
+
+## Loading necessary libraries
+
+Installs SpectralUnmixR if not already installed.
+
+```{r installation}
+if (!requireNamespace("BiocManager", quietly = TRUE))
+  install.packages("BiocManager")
+
+BiocManager::install(c("flowCore"))
+
+if (!requireNamespace("devtools", quietly = TRUE))
+  install.packages("devtools")
+
+devtools::install_github("stbenke/SpectralUnmixR")
+```
+
+```{r setup}
+library(dplyr)
+library(stringr)
+library(SpectralUnmixR)
+```
+
+## File loading
+
+### Gated single stains
+
+First, we need to specify the paths to the FCS files of the gated single stains and their corresponding negative controls. The data will be taken as is, no adjustments of the gate positions is possible at this point.
+
+Note: At the moment, no normalization for different gain settings is done! This script only works for measurements made using identical gain settings across all measurements (except for the adjustments made by the daily QC).
+
+If you need to adjust the gates and/or normalize the data, you will have to do that before using this script. If that procedure produces flowSets, you can use them directly at a later point in the script.
+
+In this example we are using two kinds of beads for the reference controls: UltraComp beads for the antibodies and ARC beads for the live/dead stain. These measurements have been gated on single beads and then on the population positive for the binding signal. Additionally, we need measurements of the corresponding negative beads and unstained cells (for the autofluorescence).
+
+Note: the system.file command is necessary here to find the example data of the package. In your own script, provide the full path relative to the script location as a string (e.g., "data/reference/CD3 FITC pos.fcs"). 
+
+```{r single stain files}
+f_beads_pos <- c(
+  system.file("extdata", "CD127 APC (Beads) pos.fcs", package = "SpectralUnmixR"),
+  system.file("extdata", "CD3 FITC (Beads) pos.fcs", package = "SpectralUnmixR"),
+  system.file("extdata", "CD4 PE-Cy7 (Beads) pos.fcs", package = "SpectralUnmixR"),
+  system.file("extdata", "CD25 PE (Beads) pos.fcs", package = "SpectralUnmixR"),
+  system.file("extdata", "CD8a PerCP-Cy5.5 (Beads) pos.fcs", package = "SpectralUnmixR")
+)
+f_beads_neg <- system.file("extdata", "CD127 APC (Beads) neg.fcs", package = "SpectralUnmixR")
+
+f_arc_pos <- system.file("extdata", "Zombie NIR (Beads) pos.fcs", package = "SpectralUnmixR")
+f_arc_neg <- system.file("extdata", "Zombie NIR (Beads) neg.fcs", package = "SpectralUnmixR")
+
+f_cells_unstained <- system.file("extdata", "Unstained (Cells).fcs", package = "SpectralUnmixR")
+```
+
+In the next section, we load the data of the single stain measurements. This step is optional and only needed if you want to visualize the single stain variability later on.
+
+The pattern argument of GetData allows to pass regular expressions to extract parts out of the file names. If you are not familiar with regular expressions, you can also pass a vector containing the names you want. If no names are given, the original file name is used as name. 
+
+```{r loading single stain data}
+d_beads_pos <- GetData(f_beads_pos, 
+                       pattern = "(?<=extdata/)(.*)(?= \\(Beads\\))")
+d_beads_neg <- GetData(f_beads_neg, 
+                       pattern = "(?<=extdata/)(.*)(?= \\(Beads\\))")
+
+d_arc_pos <- GetData(f_arc_pos, 
+                     pattern = "(?<=extdata/)(.*)(?= \\(Beads\\))")
+d_arc_neg <- GetData(f_arc_neg, 
+                     pattern = "(?<=extdata/)(.*)(?= \\(Beads\\))")
+
+d_cells_unstained <- GetData(f_cells_unstained, 
+                             pattern = "(?<=extdata/)(.*)(?= \\(Cells\\))")
+```
+
+
+### Fully stained sample
+
+Here we use GetData to load an example file containing fully stained cells.
+
+```{r loading stainings}
+d_sample <- GetData(system.file("extdata", "fullystained.fcs", package = "SpectralUnmixR"), 
+                    pattern = "(?<=extdata/)(.*)(?= \\.fcs)")
+```
+
+We need to specify which channels to include in the spectral unmixing later. Here we take all channels that were recorded using Area and exclude the scatter channels.
+
+```{r channels}
+channels <- colnames(d_sample) %>% 
+  .[str_detect(., "-A")] %>% 
+  .[!str_detect(., "SC")]
+```
+
+
+## Spectra extraction
+
+For calculating the reference spectra from the single stains, two options are available.
+
++ Median based: the standard calculation (median of the positive population minus the median of the negative population).
+
++ Regression based: works without having specified positive and negative populations (similar to AutoSpill). Convenient but does not work in all cases.
+
+Here, we only show the median based calculation. Check the help page of RegSpectra for how to use the regression based calculation.
+
+### Median based
+
+GetMedianData loads the gated FCS files and calculates the channel medians. If the processed data is already loaded, GetMedianData can also be given flowSets or dataframes. We define the variables such that they can be passed easily to the spectra calculation function later. For each type of carrier, we need the gated positive and negative populations. Additionally we also need unstained cells for the autofluorescence. Note: if multiple autofluorescence populations are present, they must be separated (e.g., using manual gating or clustering) before this step.
+
+```{r median data}
+d_beads_pos_median <- GetMedianData(f_beads_pos, 
+                                    pattern = "(?<=reference/)(.*)(?= \\(Beads\\))")
+d_beads_neg_median <- GetMedianData(f_beads_neg, 
+                                    pattern = "(?<=reference/)(.*)(?= \\(Beads\\))")
+
+d_arc_pos_median <- GetMedianData(f_arc_pos, 
+                                  pattern = "(?<=reference/)(.*)(?= \\(Beads\\))")
+d_arc_neg_median <- GetMedianData(f_arc_neg, 
+                                  pattern = "(?<=reference/)(.*)(?= \\(Beads\\))")
+
+d_cells_unstained_median <- GetMedianData(f_cells_unstained, 
+                                          pattern = "(?<=reference/)(.*)(?= \\(Cells\\))")
+```
+
+By passing, the positive populations, the negative population and the desired channels to MedianSpectra, we calculate the reference spectra. This needs to be done separately for each type of carrier used. For the autofluorescence populations, no negative populations is passed to MedianSpectra.
+
+By default, all negative values in the spectra are set to 0 and a warning is given if negative values are encountered. Usually the negative values are very close to 0 and a result of noise. But be careful, negative values can also indicate a mismatch between the positive and negative population. In that case, setting the negative values to 0 will not fix the spectra.
+
+The spectra calculated for the different carriers and autofluorescence populations are combined using bind_rows.
+
+```{r median spectra calculation}
+spec_beads_median <- MedianSpectra(d_beads_pos_median, d_beads_neg_median, channels)
+spec_arc_median <- MedianSpectra(d_arc_pos_median, d_arc_neg_median, channels)
+
+spec_unstained_cells <- MedianSpectra(d_cells_unstained_median, neg = NULL, channels)
+spec_unstained_beads <- MedianSpectra(d_beads_neg_median, neg = NULL, channels)
+
+spectra_median <- bind_rows(spec_beads_median, spec_arc_median, spec_unstained_cells)
+```
+
+PlotRefSpectra offers a quick way to plot the calculated reference spectra. The output is a ggplot object and can be further modified by ggplot2 functions.
+
+```{r median spectra plot}
+PlotRefSpectra(spectra_median)
+```
+
+### Spectra variability
+
+One requirement for unmixing is that the dye spectra are the same on each cell. For some dyes (especially tandem dyes) we have observed that there can be considerable spectral variation present already in the single stain measurement. To check for this kind of variability, we can use SingleStainVariability. 
+
+SingleStainVariability displays the calculated reference spectra together with a random collection of (autofluorescence corrected) events from the single stain measurement. Ideally, the single spectra vary closely around the median spectrum. To see smaller discrepancies better, we transform the data using an asinh transformation (because the reference spectra are normalized to a maximum of 1, the cofactors used for the transformation are below 1).
+
+In the present example, the biggest variability is seen for PE-Cy7. That kind of variability can be detrimental for the unmixing result because the reference spectra cannot adequately describe the measured data and the unmixing will try to compensate these deviations using other colors. Currently, these variations can only be addressed by 1) using reagents that do not show them in case the variations are inherent in the reagent or by 2) optimizing the sample preparation conditions in case the variations are introduced by e.g., sample fixation.
+
+```{r spectra variability}
+SingleStainVariability(list(list(d_beads_pos, d_beads_neg_median),
+                            list(d_arc_pos, d_arc_neg_median)), spectra_median, channels,
+                       sample_size = 100,
+                       transformation = 0.001)
+```
+
+## Unmixing
+
+SpectralUnmixR includes 5 different unmixing algorithms:
+
++ Ordinary least squares (OLS), used by Cytek  
++ Weighted least squares (WLS), used by Sony  
++ Non-negative least squares (NNLS), forcing solution to be non-negative 
++ Weighted non-negative least squares (WNNLS)  
++ Mean absolute percentage error (MAPE)  
+
+The methods are described in detail in 
+"Generalized Unmixing Model for Multispectral Flow Cytometry Utilizing Nonsquare Compensation Matrices",
+Novo D, Grégori G and Rajwa B, Cytometry A, 83A: 508520, 2013
+
+Note that WLS, WNNLS and MAPE cannot deal with the negative values introduced on the Aurora by the background correction. Currently, SpectralUnmixR uses the simplistic way of taking the absolute value for the weights of events having negative intensities.
+
+### Different ways to unmix
+
+MakeM converts the reference spectra dataframe into an unmixing matrix.
+
+For cases with multiple autofluorescence populations, use MakeMList.
+
+By including the autofluorescence spectra in the unmixing matrix, the autofluorescence is treated like any other color. Alternatively, the autofluorescence can be excluded from the unmixing matrix and subtracted as fixed background from each event before unmixing.
+
+```{r create M}
+M <- MakeM(spectra_median)
+
+M_noAF <- MakeM(filter(spectra_median, file != "Unstained"))
+```
+
+Unmix unmixes the given data using the chosen unmixing algorithm. Via the bg argument, a fixed background (e.g., a fixed amount of autofluorescence) can be subtracted.
+
+Note that the different methods will take different times to compute, with OLS and NNLS being the fastest.
+
+When using multiple autofluorescence populations, unmixing will take longer because each event is unmixed as many times as there are autofluorescence populations. For each cell, the best (currently only according to least squares) result is taken.
+
+Use the write_FCS argument to write the unmixing result directly to an FCS file. The fullOutput option is needed for the visualization functions later on.
+
+```{r unmixing}
+# ordinary least squares
+ols <- Unmix(d_sample, M, unmixing = "OLS", fullOutput = T)
+
+ols_constantAF <- Unmix(d_sample, M_noAF,
+                        bg = d_cells_unstained_median, 
+                        unmixing = "OLS", fullOutput = T)
+```
+
+### Visualize unmixing results
+
+UnmixingViz displays the unmixing result in an interactive app that allows an in-depth view of the fitted spectral components for each event.
+
+(The command is commented out as the interactive app does not work inside the vignette. When you run the code, simply uncomment the line.)
+
+```{runmixing visualization}
+# UnmixingViz(nnls, d_sample)
+```
+
+With UnmixingCompViz, two different unmixings on the same data can be compared side by side.
+
+(The command is commented out as the interactive app does not work inside the vignette. When you run the code, simply uncomment the line.)
+
+```{r unmixing comparison}
+# UnmixingCompViz(ols, ols_constantAF, d_sample)
+```

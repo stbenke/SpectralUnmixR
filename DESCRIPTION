@@ -27,3 +27,7 @@ Imports:
     tibble,
     tidyr,
     tidyselect
+Suggests: 
+    knitr,
+    rmarkdown
+VignetteBuilder: knitr
