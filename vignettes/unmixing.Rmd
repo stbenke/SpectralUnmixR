@@ -17,8 +17,6 @@ knitr::opts_chunk$set(
 )
 ```
 
-# Spectral unmixing
-
 The following script demonstrates how to use the SpectralUnmixR package for spectral unmixing of flow cytometry data.
 
 *Note to Aurora users*: Files are processed just like they were recorded, no normalization of files recorded at different gains is done (like in SpectroFlo). 
