@@ -38,7 +38,7 @@ if (!requireNamespace("devtools", quietly = TRUE))
   install.packages("devtools")
 
 if (!requireNamespace("SpectralUnmixR", quietly = TRUE))
-  devtools::install_github("stbenke/SpectralUnmixR")
+  devtools::install_github("stbenke/SpectralUnmixR", build_vignettes = T)
 ```
 
 ```{r setup}
@@ -162,7 +162,7 @@ spectra_median <- bind_rows(spec_beads_median, spec_arc_median, spec_unstained_c
 
 PlotRefSpectra offers a quick way to plot the calculated reference spectra. The output is a ggplot object and can be further modified by ggplot2 functions.
 
-```{r median spectra plot}
+```{r median spectra plot, fig.width=8, fig.height=4}
 PlotRefSpectra(spectra_median)
 ```
 
@@ -174,7 +174,7 @@ SingleStainVariability displays the calculated reference spectra together with a
 
 In the present example, the biggest variability is seen for PE-Cy7. That kind of variability can be detrimental for the unmixing result because the reference spectra cannot adequately describe the measured data and the unmixing will try to compensate these deviations using other colors. Currently, these variations can only be addressed by 1) using reagents that do not show them in case the variations are inherent in the reagent or by 2) optimizing the sample preparation conditions in case the variations are introduced by e.g., sample fixation.
 
-```{r spectra variability}
+```{r spectra variability, fig.width=8, fig.height=5}
 SingleStainVariability(list(list(d_beads_pos, d_beads_neg_median),
                             list(d_arc_pos, d_arc_neg_median)), spectra_median, channels,
                        sample_size = 100,
@@ -235,7 +235,7 @@ UnmixingViz displays the unmixing result in an interactive app that allows an in
 (The command is commented out as the interactive app does not work inside the vignette. When you run the code, simply uncomment the line.)
 
 ```{runmixing visualization}
-# UnmixingViz(nnls, d_sample)
+# UnmixingViz(ols, d_sample)
 ```
 
 With UnmixingCompViz, two different unmixings on the same data can be compared side by side.
