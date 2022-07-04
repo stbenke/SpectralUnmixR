@@ -31,12 +31,14 @@ Installs SpectralUnmixR if not already installed.
 if (!requireNamespace("BiocManager", quietly = TRUE))
   install.packages("BiocManager")
 
-BiocManager::install(c("flowCore"))
+if (!requireNamespace("flowCore", quietly = TRUE))
+  BiocManager::install(c("flowCore"))
 
 if (!requireNamespace("devtools", quietly = TRUE))
   install.packages("devtools")
 
-devtools::install_github("stbenke/SpectralUnmixR")
+if (!requireNamespace("SpectralUnmixR", quietly = TRUE))
+  devtools::install_github("stbenke/SpectralUnmixR")
 ```
 
 ```{r setup}
@@ -129,17 +131,17 @@ GetMedianData loads the gated FCS files and calculates the channel medians. If t
 
 ```{r median data}
 d_beads_pos_median <- GetMedianData(f_beads_pos, 
-                                    pattern = "(?<=reference/)(.*)(?= \\(Beads\\))")
+                                    pattern = "(?<=extdata/)(.*)(?= \\(Beads\\))")
 d_beads_neg_median <- GetMedianData(f_beads_neg, 
-                                    pattern = "(?<=reference/)(.*)(?= \\(Beads\\))")
+                                    pattern = "(?<=extdata/)(.*)(?= \\(Beads\\))")
 
 d_arc_pos_median <- GetMedianData(f_arc_pos, 
-                                  pattern = "(?<=reference/)(.*)(?= \\(Beads\\))")
+                                  pattern = "(?<=extdata/)(.*)(?= \\(Beads\\))")
 d_arc_neg_median <- GetMedianData(f_arc_neg, 
-                                  pattern = "(?<=reference/)(.*)(?= \\(Beads\\))")
+                                  pattern = "(?<=extdata/)(.*)(?= \\(Beads\\))")
 
 d_cells_unstained_median <- GetMedianData(f_cells_unstained, 
-                                          pattern = "(?<=reference/)(.*)(?= \\(Cells\\))")
+                                          pattern = "(?<=extdata/)(.*)(?= \\(Cells\\))")
 ```
 
 By passing, the positive populations, the negative population and the desired channels to MedianSpectra, we calculate the reference spectra. This needs to be done separately for each type of carrier used. For the autofluorescence populations, no negative populations is passed to MedianSpectra.
