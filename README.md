@@ -26,8 +26,17 @@ BiocManager::install(c("flowCore"))
 if (!requireNamespace("devtools", quietly = TRUE))
   install.packages("devtools")
 
-devtools::install_github("stbenke/SpectralUnmixR")
+devtools::install_github("stbenke/SpectralUnmixR", build_vignettes = T)
 ```
+
+## Tutorial
+
+To read the vignette, install the package as described above and run:
+
+```
+vignette("unmixing", package = "SpectralUnmixR")
+```
+
 
 ## Licence
 This R package is licensed under the GPL-3 license (see LICENSE file).
