@@ -513,3 +513,66 @@ UnmixingCompViz <- function(unmixing1, unmixing2,
 
   shiny::runGadget(ui, server)
 }
+
+
+#' Plot one marker against all others
+#'
+#' Controls the unmixing quality by plotting one marker against all others.
+#'
+#' Best done on data from single stained cells that was unmixed with a given unmixing matrix. If the plots show any curved distributions, there is a problem with the unmixing (e.g., a single stain needs to be recorded on cells instead of beads).
+#'
+#' @param marker string, the marker to be plotted agains all other markers
+#' @param dat_unmixed dataframe, the unmixed data to be plotted. Can contain data from multiple single stains.
+#' @param all_markers vector, all markers to be included in the plot
+#' @param output either "screen", "file" or "both". Whether to return the plot ("screen"), write it to a png ("file") or do both
+#' @param output_path string, where to save the plot if output is set to either "file" or "both". Default: ".", the script directory.
+#'
+#' @return either a ggplot2 plot, the plot as a png file or both
+#' @export
+#'
+#' @importFrom magrittr %>%
+#' @importFrom rlang .data
+PlotMxN <- function(marker, dat_unmixed,
+                    all_markers,
+                    output = "screen", output_path = ".") {
+
+  if (!all(all_markers %in% colnames(dat_unmixed))) {
+    stop("The following markers were not found in the data: ",
+         str_c(all_markers[!all_markers %in% colnames(dat_unmixed)],
+               collapse = " "))
+  } else if (!marker %in% all_markers) {
+    stop(marker, " not found in data.")
+  }
+
+  plot <- dat_unmixed %>%
+    dplyr::filter(file == marker) %>%
+    dplyr::select(dplyr::all_of(all_markers)) %>%
+    tidyr::pivot_longer(cols = all_markers[all_markers != marker],
+                 names_to = "channel", values_to = "signal") %>%
+    dplyr::mutate(channel = factor(.data$channel, all_markers)) %>%
+    ggplot2::ggplot(ggplot2::aes(.data[[!!rlang::sym(marker)]], .data$signal)) +
+    ggplot2::geom_hex(bins = 300, show.legend = F) +
+    ggplot2::scale_fill_gradientn(colours = rev(grDevices::rainbow(20,
+                                                                   start = 0,
+                                                                   end = 0.7))) +
+    ggplot2::facet_wrap(ggplot2::vars(.data$channel), ncol = 5) +
+    ggcyto::scale_x_logicle(t=2^22) +
+    ggcyto::scale_y_logicle(t=2^22) +
+    ggplot2::theme_bw() +
+    ggplot2::ggtitle(marker)
+
+  if (output %in% c("file", "both")) {
+    dir.create(output_path, showWarnings = FALSE)
+
+    ggplot2::ggsave(file.path(output_path, stringr::str_c(marker, ".png")),
+                    plot,
+                    width = 7.5,
+                    height = ceiling((length(all_markers)-1)/5) * 1.5 + 1)
+  }
+
+  if (output %in% c("screen", "both")) {
+    plot
+  }
+}
+
+

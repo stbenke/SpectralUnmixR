@@ -12,6 +12,7 @@ RoxygenNote: 7.2.0
 Imports: 
     dplyr,
     flowCore,
+    ggcyto,
     ggplot2,
     magrittr,
     MASS,
@@ -28,6 +29,8 @@ Imports:
     tidyr,
     tidyselect
 Suggests: 
+    BiocManager,
+    devtools,
     knitr,
     rmarkdown
 VignetteBuilder: knitr

@@ -19,7 +19,7 @@ knitr::opts_chunk$set(
 
 The following script demonstrates how to use the SpectralUnmixR package for spectral unmixing of flow cytometry data.
 
-*Note to Aurora users*: Files are processed just like they were recorded, no normalization of files recorded at different gains is done (like in SpectroFlo). 
+*Note to Aurora users*: Files are processed just like they were recorded. Files recorded are not normalized during unmixing like in SpectroFlo. 
 
 ## Loading necessary libraries
 
@@ -31,6 +31,9 @@ if (!requireNamespace("BiocManager", quietly = TRUE))
 
 if (!requireNamespace("flowCore", quietly = TRUE))
   BiocManager::install(c("flowCore"))
+
+if (!requireNamespace("ggcyto", quietly = TRUE))
+  BiocManager::install(c("ggcyto"))
 
 if (!requireNamespace("devtools", quietly = TRUE))
   install.packages("devtools")
@@ -61,18 +64,18 @@ Note: the system.file command is necessary here to find the example data of the 
 
 ```{r single stain files}
 f_beads_pos <- c(
-  system.file("extdata", "CD127 APC (Beads) pos.fcs", package = "SpectralUnmixR"),
-  system.file("extdata", "CD3 FITC (Beads) pos.fcs", package = "SpectralUnmixR"),
-  system.file("extdata", "CD4 PE-Cy7 (Beads) pos.fcs", package = "SpectralUnmixR"),
-  system.file("extdata", "CD25 PE (Beads) pos.fcs", package = "SpectralUnmixR"),
-  system.file("extdata", "CD8a PerCP-Cy5.5 (Beads) pos.fcs", package = "SpectralUnmixR")
+  system.file("extdata", "CD127_APC_Beads_pos.fcs", package = "SpectralUnmixR"),
+  system.file("extdata", "CD3_FITC_Beads_pos.fcs", package = "SpectralUnmixR"),
+  system.file("extdata", "CD4_PE-Cy7_Beads_pos.fcs", package = "SpectralUnmixR"),
+  system.file("extdata", "CD25_PE_Beads_pos.fcs", package = "SpectralUnmixR"),
+  system.file("extdata", "CD8a_PerCP-Cy5_5_Beads_pos.fcs", package = "SpectralUnmixR")
 )
-f_beads_neg <- system.file("extdata", "CD127 APC (Beads) neg.fcs", package = "SpectralUnmixR")
+f_beads_neg <- system.file("extdata", "CD127_APC_Beads_neg.fcs", package = "SpectralUnmixR")
 
-f_arc_pos <- system.file("extdata", "Zombie NIR (Beads) pos.fcs", package = "SpectralUnmixR")
-f_arc_neg <- system.file("extdata", "Zombie NIR (Beads) neg.fcs", package = "SpectralUnmixR")
+f_arc_pos <- system.file("extdata", "Zombie_NIR_Beads_pos.fcs", package = "SpectralUnmixR")
+f_arc_neg <- system.file("extdata", "Zombie_NIR_Beads_neg.fcs", package = "SpectralUnmixR")
 
-f_cells_unstained <- system.file("extdata", "Unstained (Cells).fcs", package = "SpectralUnmixR")
+f_cells_unstained <- system.file("extdata", "Unstained_Cells.fcs", package = "SpectralUnmixR")
 ```
 
 In the next section, we load the data of the single stain measurements. This step is optional and only needed if you want to visualize the single stain variability later on.
@@ -81,17 +84,17 @@ The pattern argument of GetData allows to pass regular expressions to extract pa
 
 ```{r loading single stain data}
 d_beads_pos <- GetData(f_beads_pos, 
-                       pattern = "(?<=extdata/)(.*)(?= \\(Beads\\))")
+                       pattern = "(?<=extdata/)(.*)(?=_Beads)")
 d_beads_neg <- GetData(f_beads_neg, 
-                       pattern = "(?<=extdata/)(.*)(?= \\(Beads\\))")
+                       pattern = "(?<=extdata/)(.*)(?=_Beads)")
 
 d_arc_pos <- GetData(f_arc_pos, 
-                     pattern = "(?<=extdata/)(.*)(?= \\(Beads\\))")
+                     pattern = "(?<=extdata/)(.*)(?=_Beads)")
 d_arc_neg <- GetData(f_arc_neg, 
-                     pattern = "(?<=extdata/)(.*)(?= \\(Beads\\))")
+                     pattern = "(?<=extdata/)(.*)(?=_Beads)")
 
 d_cells_unstained <- GetData(f_cells_unstained, 
-                             pattern = "(?<=extdata/)(.*)(?= \\(Cells\\))")
+                             pattern = "(?<=extdata/)(.*)(?=_Cells)")
 ```
 
 
@@ -129,17 +132,17 @@ GetMedianData loads the gated FCS files and calculates the channel medians. If t
 
 ```{r median data}
 d_beads_pos_median <- GetMedianData(f_beads_pos, 
-                                    pattern = "(?<=extdata/)(.*)(?= \\(Beads\\))")
+                                    pattern = "(?<=extdata/)(.*)(?=_Beads)")
 d_beads_neg_median <- GetMedianData(f_beads_neg, 
-                                    pattern = "(?<=extdata/)(.*)(?= \\(Beads\\))")
+                                    pattern = "(?<=extdata/)(.*)(?=_Beads)")
 
 d_arc_pos_median <- GetMedianData(f_arc_pos, 
-                                  pattern = "(?<=extdata/)(.*)(?= \\(Beads\\))")
+                                  pattern = "(?<=extdata/)(.*)(?=_Beads)")
 d_arc_neg_median <- GetMedianData(f_arc_neg, 
-                                  pattern = "(?<=extdata/)(.*)(?= \\(Beads\\))")
+                                  pattern = "(?<=extdata/)(.*)(?=_Beads)")
 
 d_cells_unstained_median <- GetMedianData(f_cells_unstained, 
-                                          pattern = "(?<=extdata/)(.*)(?= \\(Cells\\))")
+                                          pattern = "(?<=extdata/)(.*)(?=_Cells)")
 ```
 
 By passing, the positive populations, the negative population and the desired channels to MedianSpectra, we calculate the reference spectra. This needs to be done separately for each type of carrier used. For the autofluorescence populations, no negative populations is passed to MedianSpectra.
@@ -232,7 +235,7 @@ UnmixingViz displays the unmixing result in an interactive app that allows an in
 
 (The command is commented out as the interactive app does not work inside the vignette. When you run the code, simply uncomment the line.)
 
-```{runmixing visualization}
+```{r unmixing visualization}
 # UnmixingViz(ols, d_sample)
 ```
 
@@ -243,3 +246,26 @@ With UnmixingCompViz, two different unmixings on the same data can be compared s
 ```{r unmixing comparison}
 # UnmixingCompViz(ols, ols_constantAF, d_sample)
 ```
+
+### Check unmixing for a specific marker
+
+This is best done on data from single stained cells. By plotting the marker of the single stain against all other markers for the unmixed data you can check if any other marker is problematic for the unmixing of this marker.
+If the plots show any curved distributions, there is a problem with the unmixing (e.g., a single stain needs to be recorded on cells instead of beads).
+
+Ideally, the unmixing is checked for every marker (requiring cell single stains for every marker). PlotMxN can write the plots directly to a file (by setting output to "file") allowing easy looping over multiple markers.
+
+```{r MxN, fig.width=7.5, fig.height=3.5}
+single_stain_unmixed <- GetData(system.file("extdata", "CD127_APC_Beads_all.fcs", 
+                                            package = "SpectralUnmixR"),
+                                pattern = "(?<=extdata/)(.*)(?=_Beads)") %>% 
+  Unmix(M, unmixing = "OLS") %>% 
+  .$unmixed
+
+markers_all <- colnames(single_stain_unmixed) %>% 
+  .[!str_detect(., "error|Time|SSC|FSC|file")]
+
+PlotMxN("APC", single_stain_unmixed, markers_all)
+```
+
+
+
