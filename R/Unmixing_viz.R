@@ -538,8 +538,8 @@ PlotMxN <- function(marker, dat_unmixed,
 
   if (!all(all_markers %in% colnames(dat_unmixed))) {
     stop("The following markers were not found in the data: ",
-         str_c(all_markers[!all_markers %in% colnames(dat_unmixed)],
-               collapse = " "))
+         stringr::str_c(all_markers[!all_markers %in% colnames(dat_unmixed)],
+                        collapse = " "))
   } else if (!marker %in% all_markers) {
     stop(marker, " not found in data.")
   }

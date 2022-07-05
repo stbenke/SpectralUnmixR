@@ -264,7 +264,7 @@ single_stain_unmixed <- GetData(system.file("extdata", "CD127_APC_Beads_all.fcs"
 markers_all <- colnames(single_stain_unmixed) %>% 
   .[!str_detect(., "error|Time|SSC|FSC|file")]
 
-PlotMxN("APC", single_stain_unmixed, markers_all)
+PlotMxN("CD127_APC", single_stain_unmixed, markers_all)
 ```
 
 
