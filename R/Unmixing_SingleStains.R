@@ -88,6 +88,8 @@ GetData <- function(f, pattern = NA, file_name = NA, ...) {
     stop("f must be either a flowFrame, flowSet or path to one or multiple FCS file(s).")
   }
 
+  if (any(is.na(out$file))) warning("NAs produced for filenames. Most likely, there is a problem with the pattern argument.")
+
   out
 }
 
