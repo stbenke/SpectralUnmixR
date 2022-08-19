@@ -178,15 +178,14 @@ PlotRefSpectra(spectra_median)
 
 One requirement for unmixing is that the dye spectra are the same on each cell. For some dyes (especially tandem dyes) we have observed that there can be considerable spectral variation present already in the single stain measurement. To check for this kind of variability, we can use SingleStainVariability. 
 
-SingleStainVariability displays the calculated reference spectra together with a random collection of (autofluorescence corrected) events from the single stain measurement. Ideally, the single spectra vary closely around the median spectrum. To see smaller discrepancies better, we transform the data using an asinh transformation (because the reference spectra are normalized to a maximum of 1, the cofactors used for the transformation are below 1).
+SingleStainVariability displays the calculated reference spectra together with the spectra plot of the original data after subtracting the carrier fluorescence.
 
 In the present example, the biggest variability is seen for PE-Cy7. That kind of variability can be detrimental for the unmixing result because the reference spectra cannot adequately describe the measured data and the unmixing will try to compensate these deviations using other colors. Currently, these variations can only be addressed by 1) using reagents that do not show them in case the variations are inherent in the reagent or by 2) optimizing the sample preparation conditions in case the variations are introduced by e.g., sample fixation.
 
-```{r spectra variability, fig.width=8, fig.height=5}
-SingleStainVariability(list(list(d_beads_pos, d_beads_neg_median),
-                            list(d_arc_pos, d_arc_neg_median)), spectra_median, channels,
-                       sample_size = 100,
-                       transformation = 0.001)
+```{r spectra variability, fig.width=10}
+SingleStainVariability(list(list(d_beads_pos, d_beads_neg_median)), 
+                       spectra_median, channels,
+                       transformation = 0.01)
 ```
 
 ## Unmixing
@@ -216,7 +215,7 @@ By including the autofluorescence spectra in the unmixing matrix, the autofluore
 ```{r create M}
 M <- MakeM(spectra_median)
 
-M_noAF <- MakeM(filter(spectra_median, file != "Unstained"))
+M_noAF <- MakeM(filter(spectra_median, file != "unstained_cells"))
 ```
 
 Unmix unmixes the given data using the chosen unmixing algorithm. Via the bg argument, a fixed background (e.g., a fixed amount of autofluorescence) can be subtracted.

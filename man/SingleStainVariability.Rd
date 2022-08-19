@@ -8,20 +8,23 @@ SingleStainVariability(
   input_list,
   spectra,
   channels = NULL,
-  sample_size = 1000,
-  transformation = NULL
+  transformation = 0.01,
+  bins = 50,
+  ncol = NULL
 )
 }
 \arguments{
-\item{input_list}{Input list of lists in the form of list(list(pos_raw, neg_median), ...). Each sublist must contain pos_raw, the dataframe of the single stain raw data and neg_median, the channel medians of the corresponding negative control.}
+\item{input_list}{list of lists in the form of list(list(pos_raw, neg_median), ...). Each sublist must contain pos_raw, the dataframe of the single stain raw data and neg_median, the channel medians of the corresponding negative control.}
 
-\item{spectra}{Tibble of the calculated reference spectra (output of MedianSpectra or RegSpectra).}
+\item{spectra}{tibble, the calculated reference spectra (output of MedianSpectra or RegSpectra).}
 
-\item{channels}{Optional, channels to be included in the calculation in calculation}
+\item{channels}{character vector, channels to be included in the calculation in calculation (default: NULL, i.e., all)}
 
-\item{sample_size}{Number of events to sample from each pos_raw}
+\item{transformation}{numeric, optional asinh transform of the spectra. Default: 0.01 If you want to transform the normalized spectra, pass the cofactor of the asinh transformation. Note: The spectra are max normalized to 1 so your usual cofactors will not work here. Try cofactors around 0.01.}
 
-\item{transformation}{optional asinh transform of the spectra. Default: NA. If you want to transform the normalized spectra, pass the cofactor of the asinh transformation. Note: The spectra are max normalized to 1 so your usual cofactors will not work here. Try cofactors around 0.001.}
+\item{bins}{numeric, number of bins to use in the channel heatmaps (default: 50)}
+
+\item{ncol}{integer, number of columns of the facet plot (default: NULL, i.e. automatic)}
 }
 \value{
 Plot of single stain variability, faceted by single stain. The red line shows the calculated reference spectra, the blue lines the (autofluorescence subtracted) single stain events. The blue shade indicates the average similarity of that event to all other events (light blue: more similar, dark blue: less dissimilar).

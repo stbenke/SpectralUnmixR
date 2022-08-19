@@ -289,12 +289,21 @@ MedianSpectra <- function(pos, neg = NULL, channels = NULL,
   # check for negative values
   for (i in 1:nrow(res)) {
     if (any(res[i,] < 0)) {
-      warning(stringr::str_c("Warning: ", sum(res[i,] < 0),
-                             " spectra values below 0 for ", pos$file[i]))
+      warning(sum(res[i,] < 0), " spectra values below 0 for ", pos$file[i],
+              "\n",
+              purrr::map2_chr(channels_used[res[i,] < 0],
+                              res[i, res[i,] < 0],
+                              function(x, y) {
+                                stringr::str_c("\t", x, ": ", y, "\n")
+                              }),
+              "\n")
 
       if (force_non_negative) {
         # if negative values result, force to 0
+        message("\tNegative values set to 0.\n")
         res[i, res[i,] < 0] <- 0
+      } else {
+        message("\tNegative values kept.\n")
       }
     }
   }
@@ -394,46 +403,41 @@ RegSpectra <- function(pos, channels = NULL, neg = NULL,
 # Single stain variability plots ------------------------------------------
 
 
-#' Draw a sample and correct for background
+#' Correct for background
 #'
 #' Used in SingleStainVariability
 #'
-#' @param pos dataframe containing raw events
+#' @param dat dataframe containing raw events
 #' @param channels optional, channels to use
 #' @param neg_median dataframe containing the autofluorescence to subtract
-#' @param sample_size size of the sample to draw from input data
 #'
 #' @importFrom magrittr %>%
 #'
 #' @return tibble with the corrected sample
-SampleCorr <- function(pos, channels = NULL,
-                       neg_median = NULL, sample_size = 1000) {
+SampleCorr <- function(dat,
+                       channels = NULL,
+                       neg_median = NULL) {
 
-  # if no channel list is given, use all columns of pos
-  channels_used <- ChannelCheck(pos, channels)
-
-  tmp1 <- pos %>%
-    dplyr::group_by(file) %>%
-    dplyr::slice_sample(n=sample_size) %>%
-    dplyr::ungroup()
+  # if no channel list is given, use all columns of dat
+  channels_used <- ChannelCheck(dat, channels)
 
   if (!is.null(neg_median)) {
-    tmp2 <- tmp1 %>%
+    tmp <- dat %>%
       dplyr::select(tidyselect::all_of(channels_used)) %>%
       as.matrix %>%
       sweep(2, unlist(dplyr::select(neg_median, tidyselect::all_of(channels_used))))
   } else {
-    tmp2 <- tmp1 %>%
+    tmp <- dat %>%
       dplyr::select(tidyselect::all_of(channels_used)) %>%
       as.matrix
   }
 
   # normalize to 1
-  tmp2 <- tmp2 / apply(tmp2, 1, max)
+  tmp <- tmp / apply(tmp, 1, max)
 
-  tmp2 %>%
+  tmp %>%
     tibble::as_tibble() %>%
-    dplyr::mutate(file = tmp1$file)
+    dplyr::mutate(file = dat$file)
 }
 
 
@@ -452,11 +456,12 @@ CosSim <- function(m) {
 
 #' Plot the variability of the single stains
 #'
-#' @param input_list Input list of lists in the form of list(list(pos_raw, neg_median), ...). Each sublist must contain pos_raw, the dataframe of the single stain raw data and neg_median, the channel medians of the corresponding negative control.
-#' @param spectra Tibble of the calculated reference spectra (output of MedianSpectra or RegSpectra).
-#' @param channels Optional, channels to be included in the calculation in calculation
-#' @param sample_size Number of events to sample from each pos_raw
-#' @param transformation optional asinh transform of the spectra. Default: NA. If you want to transform the normalized spectra, pass the cofactor of the asinh transformation. Note: The spectra are max normalized to 1 so your usual cofactors will not work here. Try cofactors around 0.001.
+#' @param input_list list of lists in the form of list(list(pos_raw, neg_median), ...). Each sublist must contain pos_raw, the dataframe of the single stain raw data and neg_median, the channel medians of the corresponding negative control.
+#' @param spectra tibble, the calculated reference spectra (output of MedianSpectra or RegSpectra).
+#' @param channels character vector, channels to be included in the calculation in calculation (default: NULL, i.e., all)
+#' @param transformation numeric, optional asinh transform of the spectra. Default: 0.01 If you want to transform the normalized spectra, pass the cofactor of the asinh transformation. Note: The spectra are max normalized to 1 so your usual cofactors will not work here. Try cofactors around 0.01.
+#' @param bins numeric, number of bins to use in the channel heatmaps (default: 50)
+#' @param ncol integer, number of columns of the facet plot (default: NULL, i.e. automatic)
 #'
 #' @return Plot of single stain variability, faceted by single stain. The red line shows the calculated reference spectra, the blue lines the (autofluorescence subtracted) single stain events. The blue shade indicates the average similarity of that event to all other events (light blue: more similar, dark blue: less dissimilar).
 #' @export
@@ -467,8 +472,9 @@ CosSim <- function(m) {
 SingleStainVariability <- function(input_list,
                                    spectra,
                                    channels = NULL,
-                                   sample_size = 1000,
-                                   transformation = NULL) {
+                                   transformation = 0.01,
+                                   bins = 50,
+                                   ncol = NULL) {
 
   channels_used <- ChannelCheck(spectra, channels)
 
@@ -476,21 +482,8 @@ SingleStainVariability <- function(input_list,
   dat_sample_norm <- purrr::map_dfr(input_list, function(li) {
     SampleCorr(li[[1]],
                channels_used,
-               if (length(li) == 1) {NULL} else {li[[2]]},
-               sample_size)
+               if (length(li) == 1) {NULL} else {li[[2]]})
   })
-
-  # get means cosine similarities
-  sim_mean <- purrr::map(unique(dat_sample_norm$file), function(r) {
-    tmp <- dat_sample_norm %>%
-      dplyr::filter(file == r) %>%
-      dplyr::select(-file) %>%
-      as.matrix %>%
-      CosSim
-    # mean cosine similarity
-    (rowSums(tmp) - 1) / (ncol(tmp)-1)
-  }) %>%
-    unlist
 
   # prepare spectra
   spectra_prep <- spectra %>%
@@ -501,36 +494,21 @@ SingleStainVariability <- function(input_list,
                         names_to = "channel",
                         values_to = "signal") %>%
     dplyr::mutate(channel = factor(.data$channel, channels_used),
-                  signal = if (!is.null(transformation) & is.numeric(transformation)) {
+                  mean = if (!is.null(transformation) & is.numeric(transformation)) {
                     asinh(.data$signal/transformation)
                   } else {
                     .data$signal
                   })
 
   # generate plots
-  dat_sample_norm %>%
-    dplyr::mutate(mSim = sim_mean,
-                  id = 1:dplyr::n()) %>%
-    tidyr::pivot_longer(cols = tidyselect::all_of(channels_used),
-                        names_to = "channel",
-                        values_to = "signal") %>%
-    dplyr::mutate(channel = factor(.data$channel, channels_used),
-                  signal = if (!is.null(transformation) & is.numeric(transformation)) {
-                    asinh(.data$signal/transformation)
-                  } else {
-                    .data$signal
-                  }) %>%
-    ggplot2::ggplot(ggplot2::aes(x = .data$channel,
-                                 y = .data$signal,
-                                 group = .data$id,
-                                 color = .data$mSim)) +
-    ggplot2::geom_line(alpha = 0.5) +
-    ggplot2::geom_line(data = spectra_prep, color = "red") +
-    ggplot2::facet_wrap(ggplot2::vars(file), ncol = 3, scales = "free_y") +
-    ggplot2::theme_bw() +
-    ggplot2::theme(axis.text.x = ggplot2::element_text(angle = 90,
-                                                       vjust = 0.5,
-                                                       hjust = 1))
+  PlotSpectra(dat_sample_norm,
+              channels = channels,
+              bins = bins,
+              transformation = transformation,
+              ncol = ncol) +
+    ggplot2::geom_line(data = spectra_prep,
+                       ggplot2::aes(group = .data$file),
+                       color = "red", size = 1)
 }
 
 
@@ -585,10 +563,11 @@ PlotSpectra <- function(dat,
 
   dat_binned %>%
     ggplot2::ggplot(ggplot2::aes(x = .data$channel,
-                                 y = .data$mean,
-                                 height = .data$height,
-                                 fill = .data$freq)) +
-    ggplot2::geom_tile(width = 2, show.legend = F) +
+                                 y = .data$mean)) +
+    ggplot2::geom_tile(ggplot2::aes(height = .data$height,
+                                    fill = .data$freq),
+                       width = 1,
+                       show.legend = F) +
     ggplot2::scale_fill_gradientn(colours = c("#FFFFFF",
                                               rev(grDevices::rainbow(100,
                                                                      start = 0,
@@ -597,10 +576,15 @@ PlotSpectra <- function(dat,
     ggplot2::theme(axis.text.x = ggplot2::element_text(angle = 90,
                                                        vjust = 0.5,
                                                        hjust = 1)) +
-    ggplot2::scale_y_continuous(breaks = asinh(c(-10^seq(4,3),0,10^seq(3,7))/transformation),
-                                labels = c(-10^seq(4,3),0,10^seq(3,7))) +
     ggplot2::labs(x = "Channel", y = "Signal") +
-    ggplot2::facet_wrap(ggplot2::vars(file), ncol = ncol)
+    ggplot2::facet_wrap(ggplot2::vars(file), ncol = ncol) +
+    if (transformation > 1) {
+      ggplot2::scale_y_continuous(breaks = asinh(c(-10^seq(4,3),0,10^seq(3,7))/transformation),
+                                  labels = c(-10^seq(4,3),0,10^seq(3,7)))
+    } else {
+      ggplot2::scale_y_continuous(breaks = asinh(seq(-1, 1, 0.2)/transformation),
+                                  labels = seq(-1, 1, 0.2))
+    }
 }
 
 
@@ -633,7 +617,8 @@ PlotRefSpectra <- function(spectra, transformation = NA) {
                                  group = .data$id)) +
     ggplot2::geom_line() +
     ggplot2::theme_bw() +
-    ggplot2::theme(axis.text.x = ggplot2::element_text(angle = 90, vjust = 0.5, hjust = 1))
+    ggplot2::theme(axis.text.x = ggplot2::element_text(angle = 90, vjust = 0.5, hjust = 1)) +
+    ggplot2::labs(x = "Channel", y = "Signal", color = "File")
 }
 
 

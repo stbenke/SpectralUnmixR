@@ -2,18 +2,16 @@
 % Please edit documentation in R/Unmixing_SingleStains.R
 \name{SampleCorr}
 \alias{SampleCorr}
-\title{Draw a sample and correct for background}
+\title{Correct for background}
 \usage{
-SampleCorr(pos, channels = NULL, neg_median = NULL, sample_size = 1000)
+SampleCorr(dat, channels = NULL, neg_median = NULL)
 }
 \arguments{
-\item{pos}{dataframe containing raw events}
+\item{dat}{dataframe containing raw events}
 
 \item{channels}{optional, channels to use}
 
 \item{neg_median}{dataframe containing the autofluorescence to subtract}
-
-\item{sample_size}{size of the sample to draw from input data}
 }
 \value{
 tibble with the corrected sample
