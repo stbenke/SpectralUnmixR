@@ -523,7 +523,7 @@ UnmixingCompViz <- function(unmixing1, unmixing2,
 #'
 #' @param marker string, the marker to be plotted agains all other markers
 #' @param dat_unmixed dataframe, the unmixed data to be plotted. Can contain data from multiple single stains.
-#' @param all_markers vector, all markers to be included in the plot
+#' @param markers vector, all markers to be included in the plot
 #' @param output either "screen", "file" or "both". Whether to return the plot ("screen"), write it to a png ("file") or do both
 #' @param output_path string, where to save the plot if output is set to either "file" or "both". Default: ".", the script directory.
 #'
@@ -533,23 +533,37 @@ UnmixingCompViz <- function(unmixing1, unmixing2,
 #' @importFrom magrittr %>%
 #' @importFrom rlang .data
 PlotMxN <- function(marker, dat_unmixed,
-                    all_markers,
+                    markers = NULL,
                     output = "screen", output_path = ".") {
 
-  if (!all(all_markers %in% colnames(dat_unmixed))) {
+  # take dat_unmixed directly from Unmix output
+  if ("unmixed" %in% names(dat_unmixed)) {
+    dat_unmixed <- dat_unmixed$unmixed
+  }
+
+  if (!marker %in% unique(dat_unmixed$file)) {
+    stop("No data found for ", marker, " in the input data.")
+  }
+
+  if (is.null(markers)) {
+    markers <- colnames(dat_unmixed)
+    markers <- markers[!str_detect(markers, "error|Time|SSC|FSC|file")]
+  }
+
+  if (!all(markers %in% colnames(dat_unmixed))) {
     stop("The following markers were not found in the data: ",
-         stringr::str_c(all_markers[!all_markers %in% colnames(dat_unmixed)],
+         stringr::str_c(markers[!markers %in% colnames(dat_unmixed)],
                         collapse = " "))
-  } else if (!marker %in% all_markers) {
-    stop(marker, " not found in data.")
+  } else if (!marker %in% markers) {
+    stop(marker, " not found in data columns.")
   }
 
   plot <- dat_unmixed %>%
     dplyr::filter(file == marker) %>%
-    dplyr::select(dplyr::all_of(all_markers)) %>%
-    tidyr::pivot_longer(cols = all_markers[all_markers != marker],
+    dplyr::select(dplyr::all_of(markers)) %>%
+    tidyr::pivot_longer(cols = markers[markers != marker],
                  names_to = "channel", values_to = "signal") %>%
-    dplyr::mutate(channel = factor(.data$channel, all_markers)) %>%
+    dplyr::mutate(channel = factor(.data$channel, markers)) %>%
     ggplot2::ggplot(ggplot2::aes(.data[[!!rlang::sym(marker)]], .data$signal)) +
     ggplot2::geom_hex(bins = 300, show.legend = F) +
     ggplot2::scale_fill_gradientn(colours = rev(grDevices::rainbow(20,
@@ -567,7 +581,7 @@ PlotMxN <- function(marker, dat_unmixed,
     ggplot2::ggsave(file.path(output_path, stringr::str_c(marker, ".png")),
                     plot,
                     width = 7.5,
-                    height = ceiling((length(all_markers)-1)/5) * 1.5 + 1)
+                    height = ceiling((length(markers)-1)/5) * 1.5 + 1)
   }
 
   if (output %in% c("screen", "both")) {

@@ -264,13 +264,10 @@ Ideally, the unmixing is checked for every marker (requiring cell single stains 
 single_stain_unmixed <- GetData(system.file("extdata", "CD127_APC_Beads_all.fcs", 
                                             package = "SpectralUnmixR"),
                                 pattern = "(?<=extdata/)(.*)(?=_Beads)") %>% 
-  Unmix(M, unmixing = "OLS") %>% 
-  .$unmixed
+  Unmix(M, unmixing = "OLS")
 
-markers_all <- colnames(single_stain_unmixed) %>% 
-  .[!str_detect(., "error|Time|SSC|FSC|file")]
 
-PlotMxN("CD127_APC", single_stain_unmixed, markers_all)
+PlotMxN("CD127_APC", single_stain_unmixed)
 ```
 
 
