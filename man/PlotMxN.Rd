@@ -4,14 +4,20 @@
 \alias{PlotMxN}
 \title{Plot one marker against all others}
 \usage{
-PlotMxN(marker, dat_unmixed, all_markers, output = "screen", output_path = ".")
+PlotMxN(
+  marker,
+  dat_unmixed,
+  markers = NULL,
+  output = "screen",
+  output_path = "."
+)
 }
 \arguments{
 \item{marker}{string, the marker to be plotted agains all other markers}
 
 \item{dat_unmixed}{dataframe, the unmixed data to be plotted. Can contain data from multiple single stains.}
 
-\item{all_markers}{vector, all markers to be included in the plot}
+\item{markers}{vector, all markers to be included in the plot}
 
 \item{output}{either "screen", "file" or "both". Whether to return the plot ("screen"), write it to a png ("file") or do both}
 
