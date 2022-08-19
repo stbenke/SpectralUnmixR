@@ -86,15 +86,15 @@ The pattern argument of GetData allows to pass regular expressions to extract pa
 d_beads_pos <- GetData(f_beads_pos, 
                        pattern = "(?<=extdata/)(.*)(?=_Beads)")
 d_beads_neg <- GetData(f_beads_neg, 
-                       pattern = "(?<=extdata/)(.*)(?=_Beads)")
+                       file_name= "neg_beads")
 
 d_arc_pos <- GetData(f_arc_pos, 
                      pattern = "(?<=extdata/)(.*)(?=_Beads)")
 d_arc_neg <- GetData(f_arc_neg, 
-                     pattern = "(?<=extdata/)(.*)(?=_Beads)")
+                     file_name = "neg_arc_beads")
 
 d_cells_unstained <- GetData(f_cells_unstained, 
-                             pattern = "(?<=extdata/)(.*)(?=_Cells)")
+                             file_name= "unstained_cells")
 ```
 
 
@@ -104,7 +104,7 @@ Here we use GetData to load an example file containing fully stained cells.
 
 ```{r loading stainings}
 d_sample <- GetData(system.file("extdata", "fullystained.fcs", package = "SpectralUnmixR"), 
-                    pattern = "(?<=extdata/)(.*)(?= \\.fcs)")
+                    pattern = "(?<=extdata/)(.*)(?=\\.fcs)")
 ```
 
 We need to specify which channels to include in the spectral unmixing later. Here we take all channels that were recorded using Area and exclude the scatter channels.
@@ -115,6 +115,18 @@ channels <- colnames(d_sample) %>%
   .[!str_detect(., "SC")]
 ```
 
+### Spectral data plots
+
+Data can be visualized using "spectra plots" that shows data density for each channel as a heatmap.
+
+```{r, fig.width=7, fig.height=4}
+PlotSpectra(bind_rows(d_sample, d_cells_unstained), channels, ncol = 1)
+```
+
+```{r, fig.width=7}
+PlotSpectra(bind_rows(d_beads_pos, d_beads_neg, d_arc_pos, d_arc_neg),
+            channels)
+```
 
 ## Spectra extraction
 
@@ -131,18 +143,13 @@ Here, we only show the median based calculation. Check the help page of RegSpect
 GetMedianData loads the gated FCS files and calculates the channel medians. If the processed data is already loaded, GetMedianData can also be given flowSets or dataframes. We define the variables such that they can be passed easily to the spectra calculation function later. For each type of carrier, we need the gated positive and negative populations. Additionally we also need unstained cells for the autofluorescence. Note: if multiple autofluorescence populations are present, they must be separated (e.g., using manual gating or clustering) before this step.
 
 ```{r median data}
-d_beads_pos_median <- GetMedianData(f_beads_pos, 
-                                    pattern = "(?<=extdata/)(.*)(?=_Beads)")
-d_beads_neg_median <- GetMedianData(f_beads_neg, 
-                                    pattern = "(?<=extdata/)(.*)(?=_Beads)")
+d_beads_pos_median <- GetMedianData(d_beads_pos)
+d_beads_neg_median <- GetMedianData(d_beads_neg)
 
-d_arc_pos_median <- GetMedianData(f_arc_pos, 
-                                  pattern = "(?<=extdata/)(.*)(?=_Beads)")
-d_arc_neg_median <- GetMedianData(f_arc_neg, 
-                                  pattern = "(?<=extdata/)(.*)(?=_Beads)")
+d_arc_pos_median <- GetMedianData(d_arc_pos)
+d_arc_neg_median <- GetMedianData(d_arc_neg)
 
-d_cells_unstained_median <- GetMedianData(f_cells_unstained, 
-                                          pattern = "(?<=extdata/)(.*)(?=_Cells)")
+d_cells_unstained_median <- GetMedianData(d_cells_unstained)
 ```
 
 By passing, the positive populations, the negative population and the desired channels to MedianSpectra, we calculate the reference spectra. This needs to be done separately for each type of carrier used. For the autofluorescence populations, no negative populations is passed to MedianSpectra.

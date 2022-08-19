@@ -5,15 +5,15 @@
 #' Read data from FCS file into tibble or convert flowFrame into tibble
 #'
 #' @param f Path to FCS file(s), flowFrame or flowSet
-#' @param pattern Regular expression to extract pattern from file name (default: NA)
-#' @param file_name File name(s) to be stored in tibble
+#' @param pattern Regular expression to extract pattern from file name (default: NULL)
+#' @param file_name File name(s) to be stored in tibble (default: NULL)
 #' @param ... Arguments passed to read.FCS
 #'
 #' @return Tibble with the exprs matrix of the FCS file and a column containing the file name or extracted pattern. If both pattern and file_name are NA, the literal filename will be used.
 #' @export
 #' @importFrom magrittr %>%
 #'
-GetData <- function(f, pattern = NA, file_name = NA, ...) {
+GetData <- function(f, pattern = NULL, file_name = NULL, ...) {
 
   if (methods::is(f, "flowFrame")) {
     dat <- flowCore::exprs(f)
@@ -21,9 +21,9 @@ GetData <- function(f, pattern = NA, file_name = NA, ...) {
 
     out <- dat %>%
       tibble::as_tibble() %>%
-      dplyr::mutate(file = if (!is.na(pattern)) {
+      dplyr::mutate(file = if (!is.null(pattern)) {
         stringr::str_extract(file, pattern)
-      } else if (!is.na(file_name)) {
+      } else if (!is.null(file_name)) {
         file_name
       } else {
         file
@@ -36,9 +36,9 @@ GetData <- function(f, pattern = NA, file_name = NA, ...) {
 
       out <- dat %>%
         tibble::as_tibble() %>%
-        dplyr::mutate(file = if (!is.na(pattern)) {
+        dplyr::mutate(file = if (!is.null(pattern)) {
           stringr::str_extract(file, pattern)
-        } else if (!is.na(file_name)) {
+        } else if (!is.null(file_name)) {
           if (length(file_name) == length(f)) {
             file_name[i]
           } else {
@@ -58,9 +58,9 @@ GetData <- function(f, pattern = NA, file_name = NA, ...) {
 
       out <- dat %>%
         tibble::as_tibble() %>%
-        dplyr::mutate(file = if (!is.na(pattern)) {
+        dplyr::mutate(file = if (!is.null(pattern)) {
           stringr::str_extract(f, pattern)
-        } else if (!is.na(file_name)) {
+        } else if (!is.null(file_name)) {
           file_name
         } else {
           f
@@ -70,9 +70,9 @@ GetData <- function(f, pattern = NA, file_name = NA, ...) {
       out <- purrr::map_dfr(seq_along(f), function(i) {
         flowCore::exprs(flowCore::read.FCS(f[i], ...)) %>%
           tibble::as_tibble() %>%
-          dplyr::mutate(file = if (!is.na(pattern)) {
+          dplyr::mutate(file = if (!is.null(pattern)) {
             stringr::str_extract(f[i], pattern)
-          } else if (!is.na(file_name)) {
+          } else if (!is.null(file_name)) {
             if (length(file_name) == length(f)) {
               file_name[i]
             } else {
@@ -88,7 +88,9 @@ GetData <- function(f, pattern = NA, file_name = NA, ...) {
     stop("f must be either a flowFrame, flowSet or path to one or multiple FCS file(s).")
   }
 
-  if (any(is.na(out$file))) warning("NAs produced for filenames. Most likely, there is a problem with the pattern argument.")
+  if (any(is.na(out$file))) {
+    warning("NAs produced for filenames. Most likely, there is a problem with the pattern argument.")
+  }
 
   out
 }
@@ -97,7 +99,7 @@ GetData <- function(f, pattern = NA, file_name = NA, ...) {
 # only apply to properly gated files!
 #' Get channel medians for FCS file or flowFrame
 #'
-#' @param f Path to FCS file(s), flowFrame or flowSet
+#' @param f Path to FCS file(s), flowFrame or flowSet, or output of GetData
 #' @param pattern Regular expression to extract pattern from file name (default: NA)
 #' @param file_name File name to be stored in tibble
 #' @param ... Arguments passed to read.FCS
@@ -106,7 +108,7 @@ GetData <- function(f, pattern = NA, file_name = NA, ...) {
 #' @export
 #' @importFrom magrittr %>%
 #'
-GetMedianData <- function(f, pattern = NA, file_name = NA, ...) {
+GetMedianData <- function(f, pattern = NULL, file_name = NULL, ...) {
 
   if (methods::is(f, "flowFrame")) {
     dat <- flowCore::exprs(f)
@@ -115,9 +117,9 @@ GetMedianData <- function(f, pattern = NA, file_name = NA, ...) {
     out <- dat %>%
       tibble::as_tibble() %>%
       dplyr::summarise_all(function(x) stats::median(x)) %>%
-      dplyr::mutate(file = if (!is.na(pattern)) {
+      dplyr::mutate(file = if (!is.null(pattern)) {
         stringr::str_extract(file, pattern)
-      } else if (!is.na(file_name)) {
+      } else if (!is.null(file_name)) {
         file_name
       } else {
         file
@@ -131,9 +133,9 @@ GetMedianData <- function(f, pattern = NA, file_name = NA, ...) {
       out <- dat %>%
         tibble::as_tibble() %>%
         dplyr::summarise_all(function(x) stats::median(x)) %>%
-        dplyr::mutate(file = if (!is.na(pattern)) {
+        dplyr::mutate(file = if (!is.null(pattern)) {
           stringr::str_extract(file, pattern)
-        } else if (!is.na(file_name)) {
+        } else if (!is.null(file_name)) {
           if (length(file_name) == length(f)) {
             file_name[i]
           } else {
@@ -144,9 +146,7 @@ GetMedianData <- function(f, pattern = NA, file_name = NA, ...) {
         }
         )
     })
-  }
-
-  if (all(is.character(f))) {
+  } else if (all(is.character(f))) {
     if (length(f) == 1) {
       dat <- flowCore::exprs(flowCore::read.FCS(f, ...))
       file <- f
@@ -154,9 +154,9 @@ GetMedianData <- function(f, pattern = NA, file_name = NA, ...) {
       out <- dat %>%
         tibble::as_tibble() %>%
         dplyr::summarise_all(function(x) stats::median(x)) %>%
-        dplyr::mutate(file = if (!is.na(pattern)) {
+        dplyr::mutate(file = if (!is.null(pattern)) {
           stringr::str_extract(f, pattern)
-        } else if (!is.na(file_name)) {
+        } else if (!is.null(file_name)) {
           file_name
         } else {
           f
@@ -167,9 +167,9 @@ GetMedianData <- function(f, pattern = NA, file_name = NA, ...) {
         flowCore::exprs(flowCore::read.FCS(f[i], ...)) %>%
           tibble::as_tibble() %>%
           dplyr::summarise_all(function(x) stats::median(x)) %>%
-          dplyr::mutate(file = if (!is.na(pattern)) {
+          dplyr::mutate(file = if (!is.null(pattern)) {
             stringr::str_extract(f[i], pattern)
-          } else if (!is.na(file_name)) {
+          } else if (!is.null(file_name)) {
             if (length(file_name) == length(f)) {
               file_name[i]
             } else {
@@ -181,8 +181,20 @@ GetMedianData <- function(f, pattern = NA, file_name = NA, ...) {
           )
       })
     }
+  } else if (is.data.frame(f)) {
+    if ("file" %in% colnames(f)) {
+      out <- f %>%
+        dplyr::group_by(file) %>%
+        dplyr::summarise_all(function(x) stats::median(x))
+    } else {
+      stop("file column not in dataframe. Dataframe must be output of GetData.")
+    }
   } else {
     stop("f must be either a flowFrame, flowSet or path to one or multiple FCS file(s).")
+  }
+
+  if (any(is.na(out$file))) {
+    warning("NAs produced for filenames. Most likely, there is a problem with the pattern argument.")
   }
 
   out
@@ -191,6 +203,31 @@ GetMedianData <- function(f, pattern = NA, file_name = NA, ...) {
 
 
 #  Spectra calculation ----------------------------------------------------
+
+
+#' Check if channel list is given and present in data
+#'
+#' Internal function
+#'
+#' @param dat tibble, output of GetData or GetMedianData
+#' @param channels character vector, channels to be used.
+#'
+#' @return list of channels to be used
+ChannelCheck <- function(dat, channels) {
+  if (is.null(channels)) {
+    channels_used <- colnames(dat)
+    channels_used[channels_used != "file"]
+  } else {
+    if (all(channels %in% colnames(dat))) {
+      channels
+    } else {
+      stop("The following channels were not found in the data:\n",
+           stringr::str_c(channels[!channels %in% colnames(dat)],
+                          collapse = "\n"))
+    }
+  }
+}
+
 
 #' Calculate reference spectra by median subtraction
 #'
@@ -209,13 +246,15 @@ GetMedianData <- function(f, pattern = NA, file_name = NA, ...) {
 MedianSpectra <- function(pos, neg = NULL, channels = NULL,
                           force_non_negative = T) {
 
-  # if no channel list is given, use all columns of pos except file
-  if (is.null(channels)) {
-    channels_used <- colnames(pos)
-    channels_used <- channels_used[channels_used != "file"]
-  } else {
-    channels_used <- channels
+  # check pos and neg having same channels
+  if (!is.null(neg)) {
+    if (!all(colnames(pos) %in% colnames(neg))) {
+      stop("Channel names in pos and neg do not match.")
+    }
   }
+
+  # check channels
+  channels_used <- ChannelCheck(pos, channels)
 
   # take required channels and convert to matrix
   tmp_pos <- pos %>%
@@ -285,13 +324,15 @@ MedianSpectra <- function(pos, neg = NULL, channels = NULL,
 RegSpectra <- function(pos, channels = NULL, neg = NULL,
                        force_non_negative = T, robust = T) {
 
-  # if no channel list is given, use all columns of pos
-  if (is.null(channels)) {
-    channels_used <- colnames(pos)
-    channels_used <- channels_used[channels_used != "file"]
-  } else {
-    channels_used <- channels
+  # check pos and neg having same channels
+  if (!is.null(neg)) {
+    if (!all(colnames(pos) %in% colnames(neg))) {
+      stop("Channel names in pos and neg do not match.")
+    }
   }
+
+  # if no channel list is given, use all columns of pos
+  channels_used <- ChannelCheck(pos, channels)
 
   ch.fix <- make.names(channels_used)
 
@@ -369,12 +410,7 @@ SampleCorr <- function(pos, channels = NULL,
                        neg_median = NULL, sample_size = 1000) {
 
   # if no channel list is given, use all columns of pos
-  if (is.null(channels)) {
-    channels_used <- colnames(pos)
-    channels_used <- channels_used[channels_used != "file"]
-  } else {
-    channels_used <- channels
-  }
+  channels_used <- ChannelCheck(pos, channels)
 
   tmp1 <- pos %>%
     dplyr::group_by(file) %>%
@@ -432,14 +468,9 @@ SingleStainVariability <- function(input_list,
                                    spectra,
                                    channels = NULL,
                                    sample_size = 1000,
-                                   transformation = NA) {
+                                   transformation = NULL) {
 
-  if (is.null(channels)) {
-    channels_used <- colnames(spectra)
-    channels_used <- channels_used[channels_used != "file"]
-  } else {
-    channels_used <- channels
-  }
+  channels_used <- ChannelCheck(spectra, channels)
 
   # sample and normalize data
   dat_sample_norm <- purrr::map_dfr(input_list, function(li) {
@@ -470,7 +501,7 @@ SingleStainVariability <- function(input_list,
                         names_to = "channel",
                         values_to = "signal") %>%
     dplyr::mutate(channel = factor(.data$channel, channels_used),
-                  signal = if (!is.na(transformation) & is.numeric(transformation)) {
+                  signal = if (!is.null(transformation) & is.numeric(transformation)) {
                     asinh(.data$signal/transformation)
                   } else {
                     .data$signal
@@ -484,7 +515,7 @@ SingleStainVariability <- function(input_list,
                         names_to = "channel",
                         values_to = "signal") %>%
     dplyr::mutate(channel = factor(.data$channel, channels_used),
-                  signal = if (!is.na(transformation) & is.numeric(transformation)) {
+                  signal = if (!is.null(transformation) & is.numeric(transformation)) {
                     asinh(.data$signal/transformation)
                   } else {
                     .data$signal
@@ -503,14 +534,82 @@ SingleStainVariability <- function(input_list,
 }
 
 
-# Plot reference spectra --------------------------------------------------
+
+# Spectra plots -----------------------------------------------------------
+
+#' Plot Spectra
+#'
+#' @param dat tibble, output of GetData
+#' @param channels character vector, channel selection to include in the plot (default: NULL, i.e. all)
+#' @param bins numeric, number of bins to use in the channel heatmaps (default: 50)
+#' @param transformation numeric, cofactor used for the asinh transformation (default: 1000)
+#' @param ncol integer, number of columns of the facet plot (default: NULL, i.e. automatic)
+#'
+#' @return ggplot object
+#' @export
+#'
+#' @importFrom magrittr %>%
+#' @importFrom rlang .data
+#'
+PlotSpectra <- function(dat,
+                        channels = NULL,
+                        bins = 50,
+                        transformation = 1000,
+                        ncol = NULL) {
+
+  channels_used <- ChannelCheck(dat, channels)
+
+  files <- unique(dat$file)
+
+  dat <- dat %>%
+    dplyr::mutate_at(dplyr::all_of(channels_used), function(x) asinh(x/transformation))
+
+  dat_binned <- purrr::map_dfr(files, function(f) {
+    dat_tmp <- dplyr::filter(dat, .data$file == f) %>%
+      dplyr::select(dplyr::all_of(channels_used))
+    purrr::map_dfr(channels_used, function(ch) {
+      bin_counts <- table(cut(dat_tmp[[ch]], breaks = bins))
+
+      names(bin_counts) %>%
+        stringr::str_split(",") %>%
+        purrr::map_dfr(function(x) {
+          borders <- as.numeric(stringr::str_extract(x, "((?<=\\()(.*))|((.*)(?=\\]))"))
+          tibble::tibble(height = diff(borders), mean = mean(borders))
+        }) %>%
+        dplyr::mutate(freq = as.numeric(bin_counts)/sum(bin_counts),
+                      channel = ch,
+                      file = f)
+    })
+  }) %>%
+    dplyr::mutate(channel = factor(channel, channels_used))
+
+  dat_binned %>%
+    ggplot2::ggplot(ggplot2::aes(x = .data$channel,
+                                 y = .data$mean,
+                                 height = .data$height,
+                                 fill = .data$freq)) +
+    ggplot2::geom_tile(width = 2, show.legend = F) +
+    ggplot2::scale_fill_gradientn(colours = c("#FFFFFF",
+                                              rev(grDevices::rainbow(100,
+                                                                     start = 0,
+                                                                     end = 0.6)))) +
+    ggplot2::theme_bw() +
+    ggplot2::theme(axis.text.x = ggplot2::element_text(angle = 90,
+                                                       vjust = 0.5,
+                                                       hjust = 1)) +
+    ggplot2::scale_y_continuous(breaks = asinh(c(-10^seq(4,3),0,10^seq(3,7))/transformation),
+                                labels = c(-10^seq(4,3),0,10^seq(3,7))) +
+    ggplot2::labs(x = "Channel", y = "Signal") +
+    ggplot2::facet_wrap(ggplot2::vars(file), ncol = ncol)
+}
+
 
 #' Plot reference spectra
 #'
 #' @param spectra spectra dataframe as produced by MedianSpectra or RegSpectra
 #' @param transformation optional asinh transform of the spectra. Default: NA. If you want to transform the normalized spectra, pass the cofactor of the asinh transformation. Note: The spectra are max normalized to 1 so your usual cofactors will not work here. Try cofactors around 0.001.
 #'
-#' @return Plot
+#' @return ggplot object
 #'
 #' @importFrom rlang .data
 #'
@@ -523,7 +622,7 @@ PlotRefSpectra <- function(spectra, transformation = NA) {
     tidyr::pivot_longer(cols = tidyr::all_of(channels[channels != "file"]),
                         names_to = "channel", values_to = "signal") %>%
     dplyr::mutate(channel = factor(.data$channel, channels),
-                  signal = if (!is.na(transformation) & is.numeric(transformation)) {
+                  signal = if (!is.null(transformation) & is.numeric(transformation)) {
                     asinh(.data$signal/transformation)
                   } else {
                     .data$signal

@@ -4,14 +4,14 @@
 \alias{GetData}
 \title{Read data from FCS file into tibble or convert flowFrame into tibble}
 \usage{
-GetData(f, pattern = NA, file_name = NA, ...)
+GetData(f, pattern = NULL, file_name = NULL, ...)
 }
 \arguments{
 \item{f}{Path to FCS file(s), flowFrame or flowSet}
 
-\item{pattern}{Regular expression to extract pattern from file name (default: NA)}
+\item{pattern}{Regular expression to extract pattern from file name (default: NULL)}
 
-\item{file_name}{File name(s) to be stored in tibble}
+\item{file_name}{File name(s) to be stored in tibble (default: NULL)}
 
 \item{...}{Arguments passed to read.FCS}
 }

@@ -4,10 +4,10 @@
 \alias{GetMedianData}
 \title{Get channel medians for FCS file or flowFrame}
 \usage{
-GetMedianData(f, pattern = NA, file_name = NA, ...)
+GetMedianData(f, pattern = NULL, file_name = NULL, ...)
 }
 \arguments{
-\item{f}{Path to FCS file(s), flowFrame or flowSet}
+\item{f}{Path to FCS file(s), flowFrame or flowSet, or output of GetData}
 
 \item{pattern}{Regular expression to extract pattern from file name (default: NA)}
 

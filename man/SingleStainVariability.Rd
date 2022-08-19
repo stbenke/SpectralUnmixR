@@ -9,7 +9,7 @@ SingleStainVariability(
   spectra,
   channels = NULL,
   sample_size = 1000,
-  transformation = NA
+  transformation = NULL
 )
 }
 \arguments{

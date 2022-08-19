@@ -12,7 +12,7 @@ PlotRefSpectra(spectra, transformation = NA)
 \item{transformation}{optional asinh transform of the spectra. Default: NA. If you want to transform the normalized spectra, pass the cofactor of the asinh transformation. Note: The spectra are max normalized to 1 so your usual cofactors will not work here. Try cofactors around 0.001.}
 }
 \value{
-Plot
+ggplot object
 }
 \description{
 Plot reference spectra
