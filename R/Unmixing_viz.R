@@ -547,7 +547,7 @@ PlotMxN <- function(marker, dat_unmixed,
 
   if (is.null(markers)) {
     markers <- colnames(dat_unmixed)
-    markers <- markers[!str_detect(markers, "error|Time|SSC|FSC|file")]
+    markers <- markers[!stringr::str_detect(markers, "error|Time|SSC|FSC|file")]
   }
 
   if (!all(markers %in% colnames(dat_unmixed))) {

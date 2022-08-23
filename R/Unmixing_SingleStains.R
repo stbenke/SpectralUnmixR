@@ -559,7 +559,7 @@ PlotSpectra <- function(dat,
                       file = f)
     })
   }) %>%
-    dplyr::mutate(channel = factor(channel, channels_used))
+    dplyr::mutate(channel = factor(.data$channel, channels_used))
 
   dat_binned %>%
     ggplot2::ggplot(ggplot2::aes(x = .data$channel,
@@ -596,6 +596,7 @@ PlotSpectra <- function(dat,
 #' @return ggplot object
 #'
 #' @importFrom rlang .data
+#' @importFrom magrittr %>%
 #'
 #' @export
 PlotRefSpectra <- function(spectra, transformation = NA) {
