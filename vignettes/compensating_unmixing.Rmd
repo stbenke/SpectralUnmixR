@@ -1,0 +1,121 @@
+---
+title: "Applying compensation to unmixing"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{Applying compensation to unmixing}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r, include = FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>"
+)
+```
+
+Many people "fix" bad unmixing results by applying a fake compensation matrix on top of the unmixing. Here we illustrate what that actually means and why "compensating" unmixing results might not be a good idea.
+
+## Mathematics
+
+First for the mathematics of the problem.
+
+In ordinary least squares, the component abundances $\overline{a}$ are estimated using the measured signal $\overline{s}$ and the spectral matrix $M$ that contains the single spectra in the columns:
+
+$\overline{a} = (M^{T}M)^{-1}M^{T}\overline{s}$
+
+When an additional compensation matrix $C$ is applied to $\overline{a}$ to obtain $\overline{a}_{comp}$ we get:
+
+$\overline{a}_{comp} = C^{-1}\overline{a} = C^{-1}(M^{T}M)^{-1}M^{T}\overline{s}$
+
+If we want to know what that means in terms of the original spectral components, we have to solve:
+
+$C^{-1}(M^{T}M)^{-1}M^{T} = (X^{T}X)^{-1}X^{T}$
+
+where $X$ represents the spectra "corrected" by the compensation matrix.
+
+This can be rearranged to:
+
+$X = (C^{-1}(M^{T}M)^{-1}M^{T})^{-1}$
+
+The pseudoinverse of $C^{-1}(M^{T}M)^{-1}M^{T}$ can be [found via SVD](https://en.wikipedia.org/wiki/Generalized_inverse).
+
+Now that we have a for the "corrected" spectra $X$, we can visualize what the "correction" introduces.
+
+## Graphical illustration
+
+```{r installation}
+if (!requireNamespace("BiocManager", quietly = TRUE))
+  install.packages("BiocManager")
+
+if (!requireNamespace("flowCore", quietly = TRUE))
+  BiocManager::install(c("flowCore"))
+
+if (!requireNamespace("devtools", quietly = TRUE))
+  install.packages("devtools")
+
+if (!requireNamespace("SpectralUnmixR", quietly = TRUE))
+  devtools::install_github("stbenke/SpectralUnmixR", build_vignettes = T)
+```
+
+```{r setup}
+library(dplyr)
+library(ggplot2)
+library(stringr)
+library(SpectralUnmixR)
+```
+
+We load two reference spectra for illustration:
+
+```{r spectra calculation, fig.width=6, fig.height=2}
+d_beads_pos_median <- GetMedianData(c(system.file("extdata", "CD127_APC_Beads_pos.fcs", package = "SpectralUnmixR"),
+                                    system.file("extdata", "CD3_FITC_Beads_pos.fcs", package = "SpectralUnmixR")),
+                                    pattern = "(?<=extdata/)(.*)(?=_Beads)")
+d_beads_neg_median <- GetMedianData(system.file("extdata", "CD127_APC_Beads_neg.fcs", package = "SpectralUnmixR"),
+                                    file_name= "neg_beads")
+
+channels <- colnames(d_beads_pos_median) %>% 
+  .[str_detect(., "-A")] %>% 
+  .[!str_detect(., "SC")]
+
+spectra_median <- MedianSpectra(d_beads_pos_median, 
+                                d_beads_neg_median,
+                                channels) %>% 
+  suppressWarnings()
+
+PlotRefSpectra(spectra_median)
+```
+
+Now we assume we introduce a compensation containing a spillover value of 0.1 from APC to FITC
+
+```{r compensation matrix}
+C <- diag(1, 2)
+C[1,2] <- 0.2
+
+C
+```
+
+Using $C$ and the mixing matrix $M$ we can now calculate and plot the "corrected" spectra $X$.
+
+```{r corrected spectra, fig.width=6, fig.height=2}
+M <- MakeM(spectra_median)
+
+Y <- svd(solve(C) %*% solve(t(M) %*% M) %*% t(M))
+
+X <- Y$v %*% diag(1/Y$d) %*% t(Y$u)
+
+X %>% 
+  t() %>% 
+  magrittr::set_colnames(channels) %>% 
+  as_tibble() %>% 
+  suppressMessages() %>% 
+  mutate(file = spectra_median$file) %>% 
+  PlotRefSpectra()
+```
+
+The additional compensation results in the mixture of the FITC spectrum with the APC spectrum. So instead of decomposing the recorded spectra into their FITC and APC components, we now decompose them to APC and FITC containing 20% APC. For these two markers that would mean that we assume that every T cell carries a fixed amount of CD127. However, that assumption will not be reflected in the unmixed data, as T cells will only show up as CD127 positive when the APC intensity exceeds 20% of the FITC intensity.
+
+It is hard to imagine a case where such a mixture of spectra would truly correct problems in the unmixing. In our experience unmixing issues are usually the result of ill-fitting single stains (e.g., replace single stains on beads with single stains on cells) or uncorrected autofluorescence contributions.
+
+
+
