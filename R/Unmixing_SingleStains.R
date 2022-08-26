@@ -577,7 +577,7 @@ PlotSpectra <- function(dat,
                                                        vjust = 0.5,
                                                        hjust = 1)) +
     ggplot2::labs(x = "Channel", y = "Signal") +
-    ggplot2::facet_wrap(ggplot2::vars(file), ncol = ncol) +
+    ggplot2::facet_wrap(ggplot2::vars(.data$file), ncol = ncol) +
     if (transformation > 1) {
       ggplot2::scale_y_continuous(breaks = asinh(c(-10^seq(4,3),0,10^seq(3,7))/transformation),
                                   labels = c(-10^seq(4,3),0,10^seq(3,7)))

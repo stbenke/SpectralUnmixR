@@ -258,3 +258,52 @@ PlotSpectraClusters <- function(input, transformation = 0.1,
                        ggplot2::aes(group = .data$cluster),
                        color = "red", size = 0.75)
 }
+
+
+#' Plot scatter signals of AF clusters
+#'
+#' @param input result of ClusterSelection
+#' @param scatter_channels character vector, names of the two scatter channels to plot (default: c("FSC-A", "SSC-A"))
+#' @param transformation numeric, cofactor used for the asinh transformation (default: NULL, i.e., none)
+#' @param bins numeric, number of bins to use in the 2D histograms (default: 100)
+#' @param alpha numeric, transparency parameter of the 2D histograms (default: 0.5)
+#' @param ncol integer, number of columns of the facet plot (default: NULL, i.e. automatic)
+#'
+#' @importFrom rlang .data
+#'
+#' @return ggplot object, showing the scatter signals for each group of clusters (colored by cluster) found by ClusterSelection. If a group labelled NA is shown in the plot, clusters were excluded from the analysis in ClusterSelection for having too few events.
+#' @export
+#'
+PlotScatterClusters <- function(input,
+                                scatter_channels = c("FSC-A", "SSC-A"),
+                                transformation = NULL,
+                                bins = 100, alpha = 0.5, ncol = 3) {
+  if (any(!c("data", "clusters", "cluster_groups") %in% names(input))) {
+    stop("input must be result of ClusterSelection")
+  }
+
+  dat <- input$data
+
+  dat$cluster <- input$clusters
+
+  if (!is.null(input$cluster_groups)) {
+    dat <- dplyr::left_join(dat, input$cluster_groups, by = "cluster")
+  } else {
+    dat <- dplyr::mutate(dat, group = 1)
+  }
+
+  if (!is.null(transformation)) {
+    dat <- dplyr::mutate_at(dplyr::all_of(scatter_channels, function(x) {
+      asinh(x/transformation)
+    }))
+  }
+
+  ggplot2::ggplot(dat,
+                  ggplot2::aes(.data[[scatter_channels[1]]],
+                               .data[[scatter_channels[2]]],
+                               fill = as.factor(.data$cluster))) +
+    ggplot2::geom_hex(bins = bins, alpha = alpha) +
+    ggplot2::facet_wrap(ggplot2::vars(.data$group), ncol = ncol) +
+    ggplot2::theme_bw() +
+    ggplot2::labs(fill = "Cluster")
+}
