@@ -4,14 +4,14 @@
 \alias{SampleCorr}
 \title{Correct for background}
 \usage{
-SampleCorr(dat, channels = NULL, neg_median = NULL)
+SampleCorr(dat, neg_median = NULL, channels = NULL)
 }
 \arguments{
 \item{dat}{dataframe containing raw events}
 
-\item{channels}{optional, channels to use}
-
 \item{neg_median}{dataframe containing the autofluorescence to subtract}
+
+\item{channels}{optional, channels to use}
 }
 \value{
 tibble with the corrected sample

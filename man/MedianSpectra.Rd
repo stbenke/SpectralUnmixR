@@ -4,21 +4,20 @@
 \alias{MedianSpectra}
 \title{Calculate reference spectra by median subtraction}
 \usage{
-MedianSpectra(pos, neg = NULL, channels = NULL, force_non_negative = T)
+MedianSpectra(input_list, channels = NULL, force_non_negative = T, ...)
 }
 \arguments{
-\item{pos}{Positive population(s) medians supplied as dataframe containing the channel medians in the columns. Can contain multiple rows.}
-
-\item{neg}{Negative population medians supplied as dataframe containing the channel medians in the columns. Can contain only one row. If no negative population is supplied, only channel normalization is done (e.g., for autofluorescence populations).}
+\item{input_list}{List of the structure \code{list(list(pos = pos1, neg = neg1, pattern = pattern1, file_name = file_name1), ...)} containing the input where pos and neg are data for matching positive and negative populations. pos1 and neg1 can be path(s) to FCS file(s), flowFrame(s) or flowSet(s), or output of GetData. pattern or file_name can be omitted and are only needed when the input is not the result of GetData.}
 
 \item{channels}{Optional, the channels (column names) to include in the calculation.}
 
 \item{force_non_negative}{TRUE (default) / FALSE. If TRUE, sets all negative values to 0. Careful: negative values (if not very small) usually indicate a mismatch between the positive and negative population autofluorescence!}
+
+\item{...}{Additional arguments passed to read.FCS}
 }
 \value{
 A tibble containing the reference spectra (channel values in columns) together with file column taken from pos.
 }
 \description{
-Classical way of calculating reference spectra by subtracting the medians of a negative population from the medians of a positive population and then normalizing to the highest channel reading.
-Multiple dyes can be processed in one go, as long as they share the same negative population.
+Calculate reference spectra by median subtraction
 }

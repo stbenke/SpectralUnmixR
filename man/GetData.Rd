@@ -13,7 +13,7 @@ GetData(f, pattern = NULL, file_name = NULL, ...)
 
 \item{file_name}{File name(s) to be stored in tibble (default: NULL)}
 
-\item{...}{Arguments passed to read.FCS}
+\item{...}{additional arguments passed to read.FCS}
 }
 \value{
 Tibble with the exprs matrix of the FCS file and a column containing the file name or extracted pattern. If both pattern and file_name are NA, the literal filename will be used.

@@ -7,7 +7,7 @@
 #' @param f Path to FCS file(s), flowFrame or flowSet
 #' @param pattern Regular expression to extract pattern from file name (default: NULL)
 #' @param file_name File name(s) to be stored in tibble (default: NULL)
-#' @param ... Arguments passed to read.FCS
+#' @param ... additional arguments passed to read.FCS
 #'
 #' @return Tibble with the exprs matrix of the FCS file and a column containing the file name or extracted pattern. If both pattern and file_name are NA, the literal filename will be used.
 #' @export
@@ -243,14 +243,19 @@ ChannelCheck <- function(dat, channels) {
 #' @export
 #' @importFrom magrittr %>%
 #'
-MedianSpectra <- function(pos, neg = NULL, channels = NULL,
-                          force_non_negative = T) {
+CalcMedianSpectra <- function(pos, neg = NULL, channels = NULL,
+                              force_non_negative = T) {
 
   # check pos and neg having same channels
   if (!is.null(neg)) {
     if (!all(colnames(pos) %in% colnames(neg))) {
       stop("Channel names in pos and neg do not match.")
     }
+  }
+
+  # check if file column present
+  if (!"file" %in% colnames(pos)) {
+    stop("pos must contain a file column.")
   }
 
   # check channels
@@ -312,6 +317,49 @@ MedianSpectra <- function(pos, neg = NULL, channels = NULL,
   res %>%
     tibble::as_tibble() %>%
     dplyr::mutate(file = pos$file)
+}
+
+#' Calculate reference spectra by median subtraction
+#'
+#' @param input_list List of the structure \code{list(list(pos = pos1, neg = neg1, pattern = pattern1, file_name = file_name1), ...)} containing the input where pos and neg are data for matching positive and negative populations. pos1 and neg1 can be path(s) to FCS file(s), flowFrame(s) or flowSet(s), or output of GetData. pattern or file_name can be omitted and are only needed when the input is not the result of GetData.
+#' @param channels Optional, the channels (column names) to include in the calculation.
+#' @param force_non_negative TRUE (default) / FALSE. If TRUE, sets all negative values to 0. Careful: negative values (if not very small) usually indicate a mismatch between the positive and negative population autofluorescence!
+#' @param ... Additional arguments passed to read.FCS
+#'
+#' @return A tibble containing the reference spectra (channel values in columns) together with file column taken from pos.
+#' @export
+#'
+MedianSpectra <- function(input_list,
+                          channels = NULL,
+                          force_non_negative = T,
+                          ...) {
+
+  if (inherits(input_list, "list")) {
+    # check if flat list
+    if (all(purrr::map_lgl(input_list, function(x) !inherits(x, "list")))) {
+      input_list <- list(input_list)
+    }
+    # map over list elements
+    purrr::map_dfr(input_list, function(x) {
+      if ("pos" %in% names(x)) {
+        CalcMedianSpectra(pos = GetMedianData(x$pos,
+                                              pattern = x$pattern,
+                                              file_name = x$file_name,
+                                              ...),
+                          neg = if (!is.null(x$neg)) {
+                            GetMedianData(x$neg,
+                                          ...)
+                          } else NULL,
+                          channels = channels,
+                          force_non_negative = force_non_negative)
+      } else {
+        stop("input_list must contain at least a pos element")
+      }
+    })
+  } else {
+    stop("input_list must be a list or list of lists containing at least a pos element.")
+  }
+
 }
 
 
@@ -408,15 +456,15 @@ RegSpectra <- function(pos, channels = NULL, neg = NULL,
 #' Used in SingleStainVariability
 #'
 #' @param dat dataframe containing raw events
-#' @param channels optional, channels to use
 #' @param neg_median dataframe containing the autofluorescence to subtract
+#' @param channels optional, channels to use
 #'
 #' @importFrom magrittr %>%
 #'
 #' @return tibble with the corrected sample
 SampleCorr <- function(dat,
-                       channels = NULL,
-                       neg_median = NULL) {
+                       neg_median = NULL,
+                       channels = NULL) {
 
   # if no channel list is given, use all columns of dat
   channels_used <- ChannelCheck(dat, channels)
@@ -474,16 +522,39 @@ SingleStainVariability <- function(input_list,
                                    channels = NULL,
                                    transformation = 0.01,
                                    bins = 50,
-                                   ncol = NULL) {
+                                   ncol = NULL,
+                                   ...) {
 
   channels_used <- ChannelCheck(spectra, channels)
 
-  # sample and normalize data
-  dat_sample_norm <- purrr::map_dfr(input_list, function(li) {
-    SampleCorr(li[[1]],
-               channels_used,
-               if (length(li) == 1) {NULL} else {li[[2]]})
-  })
+  if (inherits(input_list, "list")) {
+    # check if flat list
+    if (all(purrr::map_lgl(input_list, function(x) !inherits(x, "list")))) {
+      input_list <- list(input_list)
+    }
+    # map over list elements
+    dat_sample_norm <- purrr::map_dfr(input_list, function(x) {
+      if ("pos" %in% names(x)) {
+        SampleCorr(dat = if (inherits(x$pos, "data.frame")) {
+          x$pos
+        } else {
+          GetData(x$pos,
+                  pattern = x$pattern,
+                  file_name = x$file_name,
+                  ...)
+        },
+        neg_median = if (!is.null(x$neg)) {
+          GetMedianData(x$neg,
+                        ...)
+        } else NULL,
+        channels = channels)
+      } else {
+        stop("input_list must contain at least a pos element")
+      }
+    })
+  } else {
+    stop("input_list must be a list or list of lists containing at least a pos element.")
+  }
 
   # prepare spectra
   spectra_prep <- spectra %>%
@@ -591,6 +662,7 @@ PlotSpectra <- function(dat,
 #' Plot reference spectra
 #'
 #' @param spectra spectra dataframe as produced by MedianSpectra or RegSpectra
+#' @param channels character vector, channel selection to include in the plot (default: NULL, i.e. all)
 #' @param transformation optional asinh transform of the spectra. Default: NA. If you want to transform the normalized spectra, pass the cofactor of the asinh transformation. Note: The spectra are max normalized to 1 so your usual cofactors will not work here. Try cofactors around 0.001.
 #'
 #' @return ggplot object
@@ -599,12 +671,15 @@ PlotSpectra <- function(dat,
 #' @importFrom magrittr %>%
 #'
 #' @export
-PlotRefSpectra <- function(spectra, transformation = NA) {
-  channels <- colnames(spectra)
+PlotRefSpectra <- function(spectra, channels = NULL, transformation = NULL) {
+
+  if (is.null(channels)) {
+    channels <- colnames(spectra)[colnames(spectra) != "file"]
+  }
 
   spectra %>%
     dplyr::mutate(id = 1:dplyr::n()) %>%
-    tidyr::pivot_longer(cols = tidyr::all_of(channels[channels != "file"]),
+    tidyr::pivot_longer(cols = tidyr::all_of(channels),
                         names_to = "channel", values_to = "signal") %>%
     dplyr::mutate(channel = factor(.data$channel, channels),
                   signal = if (!is.null(transformation) & is.numeric(transformation)) {

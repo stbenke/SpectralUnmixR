@@ -4,10 +4,12 @@
 \alias{PlotRefSpectra}
 \title{Plot reference spectra}
 \usage{
-PlotRefSpectra(spectra, transformation = NA)
+PlotRefSpectra(spectra, channels = NULL, transformation = NULL)
 }
 \arguments{
 \item{spectra}{spectra dataframe as produced by MedianSpectra or RegSpectra}
+
+\item{channels}{character vector, channel selection to include in the plot (default: NULL, i.e. all)}
 
 \item{transformation}{optional asinh transform of the spectra. Default: NA. If you want to transform the normalized spectra, pass the cofactor of the asinh transformation. Note: The spectra are max normalized to 1 so your usual cofactors will not work here. Try cofactors around 0.001.}
 }

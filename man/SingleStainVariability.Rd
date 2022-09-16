@@ -10,7 +10,8 @@ SingleStainVariability(
   channels = NULL,
   transformation = 0.01,
   bins = 50,
-  ncol = NULL
+  ncol = NULL,
+  ...
 )
 }
 \arguments{

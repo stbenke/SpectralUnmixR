@@ -4,7 +4,7 @@
 \alias{MakeMList}
 \title{Create list of unmixing matrices}
 \usage{
-MakeMList(AF, dye_spectra, channels = NA)
+MakeMList(AF, dye_spectra, channels = NULL)
 }
 \arguments{
 \item{AF}{Dataframe containing the autofluorescence spectra in the rows.}

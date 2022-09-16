@@ -140,32 +140,24 @@ Here, we only show the median based calculation. Check the help page of RegSpect
 
 ### Median based
 
-GetMedianData loads the gated FCS files and calculates the channel medians. If the processed data is already loaded, GetMedianData can also be given flowSets or dataframes. We define the variables such that they can be passed easily to the spectra calculation function later. For each type of carrier, we need the gated positive and negative populations. Additionally we also need unstained cells for the autofluorescence. Note: if multiple autofluorescence populations are present, they must be separated (e.g., using manual gating or clustering) before this step.
-
-```{r median data}
-d_beads_pos_median <- GetMedianData(d_beads_pos)
-d_beads_neg_median <- GetMedianData(d_beads_neg)
-
-d_arc_pos_median <- GetMedianData(d_arc_pos)
-d_arc_neg_median <- GetMedianData(d_arc_neg)
-
-d_cells_unstained_median <- GetMedianData(d_cells_unstained)
-```
-
-By passing, the positive populations, the negative population and the desired channels to MedianSpectra, we calculate the reference spectra. This needs to be done separately for each type of carrier used. For the autofluorescence populations, no negative populations is passed to MedianSpectra.
+MedianSpectra first calculates the channel medians for the given positive and negative populations and then builds the spectra by subtracting the median of the negative population from the median of the positive population and max norming the result. If no negative population is given (e.g., for autofluorescence populations), the calculated medians are max normed without any prior subtraction.
 
 By default, all negative values in the spectra are set to 0 and a warning is given if negative values are encountered. Usually the negative values are very close to 0 and a result of noise. But be careful, negative values can also indicate a mismatch between the positive and negative population. In that case, setting the negative values to 0 will not fix the spectra.
 
-The spectra calculated for the different carriers and autofluorescence populations are combined using bind_rows.
+The input needs to be passed as a list of lists, each containing at least a "pos" element and optionally the elements "neg", "pattern" and "file_name". pos and neg can be paths to FCS files, flowFrames, flowSets or dataframes (produced by GetData) containing the gated positive and negative populations of a certain carrier. The "pattern" and "file_name" elements are only used when reading in the data specified by "pos" (see GetData). 
+
+Note: if multiple autofluorescence populations are present in one unstained measurement, they must be separated (e.g., using manual gating or clustering) before this step. Otherwise, the AF population will be the median of all populations present in the measurement.
+
+The channels argument is optional and used to specify the channels to be included in the spectra calculation. By default, all channels in the file are included (that usually includes channels like FSC, SSC and Time!).
 
 ```{r median spectra calculation}
-spec_beads_median <- MedianSpectra(d_beads_pos_median, d_beads_neg_median, channels)
-spec_arc_median <- MedianSpectra(d_arc_pos_median, d_arc_neg_median, channels)
-
-spec_unstained_cells <- MedianSpectra(d_cells_unstained_median, neg = NULL, channels)
-spec_unstained_beads <- MedianSpectra(d_beads_neg_median, neg = NULL, channels)
-
-spectra_median <- bind_rows(spec_beads_median, spec_arc_median, spec_unstained_cells)
+spectra_median <- MedianSpectra(
+  list(
+    list(pos = d_beads_pos, neg = d_beads_neg),
+    list(pos = d_arc_pos, neg = d_arc_neg),
+    list(pos = d_cells_unstained)
+  ), channels
+)
 ```
 
 PlotRefSpectra offers a quick way to plot the calculated reference spectra. The output is a ggplot object and can be further modified by ggplot2 functions.
@@ -178,14 +170,19 @@ PlotRefSpectra(spectra_median)
 
 One requirement for unmixing is that the dye spectra are the same on each cell. For some dyes (especially tandem dyes) we have observed that there can be considerable spectral variation present already in the single stain measurement. To check for this kind of variability, we can use SingleStainVariability. 
 
-SingleStainVariability displays the calculated reference spectra together with the spectra plot of the original data after subtracting the carrier fluorescence.
+SingleStainVariability displays the calculated reference spectra together with the spectra plot of the original data after subtracting the carrier fluorescence (if applicable).
 
 In the present example, the biggest variability is seen for PE-Cy7. That kind of variability can be detrimental for the unmixing result because the reference spectra cannot adequately describe the measured data and the unmixing will try to compensate these deviations using other colors. Currently, these variations can only be addressed by 1) using reagents that do not show them in case the variations are inherent in the reagent or by 2) optimizing the sample preparation conditions in case the variations are introduced by e.g., sample fixation.
 
 ```{r spectra variability, fig.width=10}
-SingleStainVariability(list(list(d_beads_pos, d_beads_neg_median)), 
-                       spectra_median, channels,
-                       transformation = 0.01)
+SingleStainVariability(
+  list(
+    list(pos = d_beads_pos, neg = d_beads_neg),
+    list(pos = d_arc_pos, neg = d_arc_neg),
+    list(pos = d_cells_unstained)
+  ), 
+  spectra_median, channels,
+  transformation = 0.01)
 ```
 
 ## Unmixing
@@ -242,7 +239,7 @@ UnmixingViz displays the unmixing result in an interactive app that allows an in
 (The command is commented out as the interactive app does not work inside the vignette. When you run the code, simply uncomment the line.)
 
 ```{r unmixing visualization}
-# UnmixingViz(ols, d_sample)
+UnmixingViz(ols, d_sample)
 ```
 
 With UnmixingCompViz, two different unmixings on the same data can be compared side by side.

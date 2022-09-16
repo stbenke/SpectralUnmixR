@@ -592,17 +592,18 @@ MakeM <- function(dye_spectra, channels = NA) {
 #' @return List of unmixing matrices to used in Unmixing
 #'
 #' @importFrom magrittr %>%
+#' @importFrom rlang .data
 #' @export
 #'
-MakeMList <- function(AF, dye_spectra, channels = NA) {
-  if (is.na(channels)) {
+MakeMList <- function(AF, dye_spectra, channels = NULL) {
+  if (is.null(channels)) {
     channels_used <- colnames(dye_spectra)[colnames(dye_spectra) != "file"]
   } else {
     channels_used <- channels
   }
 
   purrr::map(1:nrow(AF), function(i) {
-    dplyr::bind_rows(dye_spectra, AF[i,]) %>%
+    dplyr::bind_rows(dye_spectra, dplyr::mutate(AF[i,], file = as.character(.data$file))) %>%
       dplyr::select(dplyr::all_of(channels_used)) %>%
       as.matrix %>%
       t %>%

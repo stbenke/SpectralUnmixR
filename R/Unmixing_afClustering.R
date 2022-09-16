@@ -124,7 +124,7 @@ ClusterSelection <- function(dat, clusters,
           dplyr::select(dplyr::all_of(channels_used)) %>%
           dplyr::mutate(cluster = clusters) %>%
           dplyr::filter(if (!is.null(count_min)) {
-            .data$cluster %in% sort(unique(.data$cluster))[cluster_counts >= count_min]
+            .data$cluster %in% unique(dat_clust$cluster)
           } else {
             TRUE
           }) %>%
