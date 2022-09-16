@@ -22,19 +22,9 @@ UnmixMatrix <- function(dat, UnmixFun, ...) {
 #'
 #' @return abundance matrix
 #'
-#' @importFrom foreach %dopar%
 UnmixMatrix_par <- function(n_cores, dat, UnmixFun, ...) {
-  cl <- parallel::makeCluster(n_cores)
-  doParallel::registerDoParallel(cl)
-
-  out <- foreach::foreach(i = 1:nrow(dat),
-                          .combine = "rbind") %dopar%
-    t(do.call(match.fun(UnmixFun),
-              c(list(dat[i,]), list(...))))
-
-  parallel::stopCluster(cl)
-
-  return(out)
+  future::plan(future::multisession, workers = n_cores)
+  t(future.apply::future_apply(dat, 1, match.fun(UnmixFun), ...))
 }
 
 
