@@ -239,7 +239,7 @@ UnmixingViz displays the unmixing result in an interactive app that allows an in
 (The command is commented out as the interactive app does not work inside the vignette. When you run the code, simply uncomment the line.)
 
 ```{r unmixing visualization}
-UnmixingViz(ols, d_sample)
+# UnmixingViz(ols, d_sample)
 ```
 
 With UnmixingCompViz, two different unmixings on the same data can be compared side by side.
@@ -266,6 +266,5 @@ single_stain_unmixed <- GetData(system.file("extdata", "CD127_APC_Beads_all.fcs"
 
 PlotMxN("CD127_APC", single_stain_unmixed)
 ```
-
 
 

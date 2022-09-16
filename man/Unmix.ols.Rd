@@ -4,14 +4,16 @@
 \alias{Unmix.ols}
 \title{Ordinary least squares unmixing}
 \usage{
-Unmix.ols(dat, M, bg = NULL)
+Unmix.ols(dat, M, bg = NULL, n_cores = 1)
 }
 \arguments{
-\item{dat}{dataframe, data to be unmixed}
+\item{dat}{Dataframe, data to be unmixed}
 
-\item{M}{unmixing matrix}
+\item{M}{Unmixing matrix}
 
-\item{bg}{vector of constant background to be subtracted from each event}
+\item{bg}{Vector of constant background to be subtracted from each event}
+
+\item{n_cores}{Number of cores to use during unmixing (default: 1)}
 }
 \value{
 dataframe with component abundances

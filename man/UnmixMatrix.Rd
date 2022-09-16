@@ -11,7 +11,7 @@ UnmixMatrix(dat, UnmixFun, ...)
 
 \item{UnmixFun}{unmixing function to apply}
 
-\item{...}{params passed to unmixing function}
+\item{...}{Parameters passed to unmixing function}
 }
 \value{
 abundance matrix

@@ -6,11 +6,35 @@
 #'
 #' @param dat Dataframe to unmix
 #' @param UnmixFun unmixing function to apply
-#' @param ... params passed to unmixing function
+#' @param ... Parameters passed to unmixing function
 #'
 #' @return abundance matrix
 UnmixMatrix <- function(dat, UnmixFun, ...) {
   t(apply(dat, 1, match.fun(UnmixFun), ...))
+}
+
+#' Wrapper to apply unmixing function to each row in data matrix (parallel version)
+#'
+#' @param n_cores Number of cores to use
+#' @param dat Dataframe to unmix
+#' @param UnmixFun unmixing function to apply
+#' @param ... Parameters passed to unmixing function
+#'
+#' @return abundance matrix
+#'
+#' @importFrom foreach %dopar%
+UnmixMatrix_par <- function(n_cores, dat, UnmixFun, ...) {
+  cl <- parallel::makeCluster(n_cores)
+  doParallel::registerDoParallel(cl)
+
+  out <- foreach::foreach(i = 1:nrow(dat),
+                          .combine = "rbind") %dopar%
+    t(do.call(match.fun(UnmixFun),
+              c(list(dat[i,]), list(...))))
+
+  parallel::stopCluster(cl)
+
+  return(out)
 }
 
 
@@ -27,12 +51,13 @@ UnmixFunc.ols <- function(x, U) {
 #'
 #' https://en.wikipedia.org/wiki/Ordinary_least_squares
 #'
-#' @param dat dataframe, data to be unmixed
-#' @param M unmixing matrix
-#' @param bg vector of constant background to be subtracted from each event
+#' @param dat Dataframe, data to be unmixed
+#' @param M Unmixing matrix
+#' @param bg Vector of constant background to be subtracted from each event
+#' @param n_cores Number of cores to use during unmixing (default: 1)
 #'
 #' @return dataframe with component abundances
-Unmix.ols <- function(dat, M, bg = NULL) {
+Unmix.ols <- function(dat, M, bg = NULL, n_cores = 1) {
   # calculate unmixing matrix to speed things up
   U <- solve(t(M) %*% M) %*% t(M)
   if (is.null(bg)) {
@@ -40,7 +65,11 @@ Unmix.ols <- function(dat, M, bg = NULL) {
   } else {
     tmp <- sweep(dat, 2, bg)
   }
-  UnmixMatrix(tmp, UnmixFunc.ols, U)
+  if (n_cores == 1) {
+    UnmixMatrix(tmp, UnmixFunc.ols, U)
+  } else if (n_cores > 1) {
+    UnmixMatrix_par(n_cores, tmp, UnmixFunc.ols, U)
+  }
 }
 
 
@@ -71,13 +100,27 @@ UnmixFunc.wls.nobg <- function(x, M) {
 #' @param dat dataframe, data to be unmixed
 #' @param M unmixing matrix
 #' @param bg vector of constant background to be subtracted from each event
+#' @param n_cores Number of cores to use during unmixing (default: 1)
 #'
 #' @return dataframe with component abundances
-Unmix.wls <- function(dat, M, bg = NULL) {
+Unmix.wls <- function(dat, M, bg = NULL, n_cores = 1) {
   if (is.null(bg)) {
     UnmixMatrix(dat, UnmixFunc.wls.nobg, M)
   } else {
     UnmixMatrix(dat, UnmixFunc.wls.bg, M, bg)
+  }
+  if (n_cores == 1) {
+    if (is.null(bg)) {
+      UnmixMatrix(dat, UnmixFunc.wls.nobg, M)
+    } else {
+      UnmixMatrix(dat, UnmixFunc.wls.bg, M, bg)
+    }
+  } else if (n_cores > 1) {
+    if (is.null(bg)) {
+      UnmixMatrix_par(n_cores, dat, UnmixFunc.wls.nobg, M)
+    } else {
+      UnmixMatrix_par(n_cores, dat, UnmixFunc.wls.bg, M, bg)
+    }
   }
 }
 
@@ -96,15 +139,20 @@ UnmixFunc.nnls <- function(x, M) {
 #' @param dat dataframe, data to be unmixed
 #' @param M unmixing matrix
 #' @param bg vector of constant background to be subtracted from each event
+#' @param n_cores Number of cores to use during unmixing (default: 1)
 #'
 #' @return dataframe with component abundances
-Unmix.nnls <- function(dat, M, bg = NULL) {
+Unmix.nnls <- function(dat, M, bg = NULL, n_cores = 1) {
   if (is.null(bg)) {
     tmp <- dat
   } else {
     tmp <- sweep(dat, 2, bg)
   }
-  UnmixMatrix(tmp, UnmixFunc.nnls, M)
+  if (n_cores == 1) {
+    UnmixMatrix(tmp, UnmixFunc.nnls, M)
+  } else if (n_cores > 1) {
+    UnmixMatrix_par(n_cores, tmp, UnmixFunc.nnls, M)
+  }
 }
 
 
@@ -134,13 +182,22 @@ UnmixFunc.wnnls.nobg <- function(x, M) {
 #' @param dat dataframe, data to be unmixed
 #' @param M unmixing matrix
 #' @param bg vector of constant background to be subtracted from each event
+#' @param n_cores Number of cores to use during unmixing (default: 1)
 #'
 #' @return dataframe with component abundances
-Unmix.wnnls <- function(dat, M, bg = NULL) {
-  if (is.null(bg)) {
-    UnmixMatrix(dat, UnmixFunc.wnnls.nobg, M)
-  } else {
-    UnmixMatrix(dat, UnmixFunc.wnnls.bg, M, bg)
+Unmix.wnnls <- function(dat, M, bg = NULL, n_cores = 1) {
+  if (n_cores == 1) {
+    if (is.null(bg)) {
+      UnmixMatrix(dat, UnmixFunc.wnnls.nobg, M)
+    } else {
+      UnmixMatrix(dat, UnmixFunc.wnnls.bg, M, bg)
+    }
+  } else if (n_cores > 1) {
+    if (is.null(bg)) {
+      UnmixMatrix_par(n_cores, dat, UnmixFunc.wnnls.nobg, M)
+    } else {
+      UnmixMatrix_par(n_cores, dat, UnmixFunc.wnnls.bg, M, bg)
+    }
   }
 }
 
@@ -176,13 +233,22 @@ UnmixFunc.mape.nobg <- function(x, M) {
 #' @param dat dataframe, data to be unmixed
 #' @param M unmixing matrix
 #' @param bg vector of constant background to be subtracted from each event (default: NULL)
+#' @param n_cores Number of cores to use during unmixing (default: 1)
 #'
 #' @return dataframe with component abundances
-Unmix.mape <- function(dat, M, bg = NULL) {
-  if (is.null(bg)) {
-    UnmixMatrix(dat, UnmixFunc.mape.nobg, M)
-  } else {
-    UnmixMatrix(dat, UnmixFunc.mape.bg, M, bg)
+Unmix.mape <- function(dat, M, bg = NULL, n_cores = 1) {
+  if (n_cores == 1) {
+    if (is.null(bg)) {
+      UnmixMatrix(dat, UnmixFunc.mape.nobg, M)
+    } else {
+      UnmixMatrix(dat, UnmixFunc.mape.bg, M, bg)
+    }
+  } else if (n_cores > 1) {
+    if (is.null(bg)) {
+      UnmixMatrix_par(n_cores, dat, UnmixFunc.mape.nobg, M)
+    } else {
+      UnmixMatrix_par(n_cores, dat, UnmixFunc.mape.bg, M, bg)
+    }
   }
 }
 
@@ -193,9 +259,10 @@ Unmix.mape <- function(dat, M, bg = NULL) {
 #' @param M unmixing matrix
 #' @param bg vector of constant background to be subtracted from each event (default: NULL)
 #' @param unmixFunc string, unmixing method. OLS, WLS, NNLS, WNNLS or MAPE. (default: "OLS")
+#' @param n_cores Number of cores to use during unmixing (default: 1)
 #'
 #' @return matrix with component abundances
-Unmix.wrapper <- function(dat, M, bg = NULL, unmixFunc = "OLS") {
+Unmix.wrapper <- function(dat, M, bg = NULL, unmixFunc = "OLS", n_cores = 1) {
 
   # Test if channels of dat and M match
   if (ncol(dat) != nrow(M)) {
@@ -207,32 +274,32 @@ Unmix.wrapper <- function(dat, M, bg = NULL, unmixFunc = "OLS") {
   # Apply chosen unmixing function
   if (unmixFunc == "OLS") {
     dat %>%
-      Unmix.ols(M, bg) %>%
+      Unmix.ols(M, bg, n_cores) %>%
       magrittr::set_colnames(colnames(M))
   } else if (unmixFunc == "NNLS") {
     dat %>%
-      Unmix.nnls(M, bg) %>%
+      Unmix.nnls(M, bg, n_cores) %>%
       magrittr::set_colnames(colnames(M))
   } else if (unmixFunc == "WLS") {
     # put in offset for 0 values to make weighted unmixing possible
     dat[dat==0] <- 0.05
 
     dat %>%
-      Unmix.wls(M, bg) %>%
+      Unmix.wls(M, bg, n_cores) %>%
       magrittr::set_colnames(colnames(M))
   } else if (unmixFunc == "WNNLS") {
     # put in offset for 0 values to make weighted unmixing possible
     dat[dat==0] <- 0.05
 
     dat %>%
-      Unmix.wnnls(M, bg) %>%
+      Unmix.wnnls(M, bg, n_cores) %>%
       magrittr::set_colnames(colnames(M))
   } else if (unmixFunc == "MAPE") {
     # put in offset for 0 values to make weighted unmixing possible
     dat[dat==0] <- 0.05
 
     dat %>%
-      Unmix.mape(M, bg) %>%
+      Unmix.mape(M, bg, n_cores) %>%
       magrittr::set_colnames(colnames(M))
   } else {
     stop(stringr::str_c(unmixFunc, " is not a known unmixing function."))
@@ -254,6 +321,7 @@ Unmix.wrapper <- function(dat, M, bg = NULL, unmixFunc = "OLS") {
 #' @param FCS_suffix suffix added to the FCS files (default: "unmixed")
 #' @param FCS_dir directory to export the FCS files to (default: ".")
 #' @param fullOutput Add the reconstruction and unmixing matrix to the output (default: FALSE). Needed for the interactive visualization
+#' @param n_cores Number of cores to use during unmixing (default: 1)
 #'
 #' @return list(unmixed, reconstruction, M)
 #' @export
@@ -261,7 +329,8 @@ Unmix.wrapper <- function(dat, M, bg = NULL, unmixFunc = "OLS") {
 UnmixFile <- function(data, M, bg = NULL,
                       unmixing = "OLS",
                       write_FCS = FALSE, FCS_suffix = "unmixed",  FCS_dir = ".",
-                      fullOutput = FALSE) {
+                      fullOutput = FALSE,
+                      n_cores = 1) {
 
   if (!is.data.frame(data)) {
     stop("Input data must be passed as dataframe or tibble.")
@@ -276,7 +345,7 @@ UnmixFile <- function(data, M, bg = NULL,
     as.matrix
 
   # unmixing
-  abundances <- Unmix.wrapper(measurement, M, bg, unmixing)
+  abundances <- Unmix.wrapper(measurement, M, bg, unmixing, n_cores)
 
   # reconstruction
   if (is.null(bg)) {
@@ -340,6 +409,7 @@ UnmixFile <- function(data, M, bg = NULL,
 #' @param FCS_suffix suffix added to the FCS files (default: "unmixed")
 #' @param FCS_dir directory to export the FCS files to (default: ".")
 #' @param fullOutput Add the reconstruction and unmixing matrix to the output (default: FALSE). Needed for the interactive visualization
+#' @param n_cores Number of cores to use during unmixing (default: 1)
 #'
 #' @return list(unmixed, reconstruction, M)
 #'
@@ -348,7 +418,8 @@ UnmixFile <- function(data, M, bg = NULL,
 UnmixFile_MultiAF <- function(data, M, bg = NULL,
                               unmixing = "OLS",
                               write_FCS = FALSE, FCS_suffix = "unmixed",  FCS_dir = ".",
-                              fullOutput = FALSE) {
+                              fullOutput = FALSE,
+                              n_cores = 1) {
 
   if (!is.data.frame(data)) {
     stop("Input data must be passed as dataframe or tibble.")
@@ -369,7 +440,8 @@ UnmixFile_MultiAF <- function(data, M, bg = NULL,
 
   # unmixing
   # currently only supports one type of background
-  abundances <- purrr::map(M, ~Unmix.wrapper(measurement, ., bg, unmixing))
+  abundances <- purrr::map(M, ~Unmix.wrapper(measurement, .,
+                                             bg, unmixing, n_cores))
 
   # reconstruction
   if (is.null(bg)) {
@@ -479,6 +551,7 @@ UnmixFile_MultiAF <- function(data, M, bg = NULL,
 #' @param FCS_dir Directory to write the unmixed FCS file to. Default: ".".
 #' @param fullOutput If TRUE, returns a list containing the reconstructed data and unmixing matrix in addition to the abundances.
 #' Necessary for the interactive visualization.
+#' @param n_cores Number of cores to use during unmixing (default: 1)
 #'
 #' @return List containing the abundances (unmixed). If fullOutput = TRUE, the list also contains the reconstructed data (reconstruction),
 #' and the unmixing matrix. If write_FCS = TRUE, the function also writes an FCS file containing the abundances.
@@ -488,7 +561,8 @@ UnmixFile_MultiAF <- function(data, M, bg = NULL,
 Unmix <- function(data, M, bg = NULL,
                   unmixing = "OLS",
                   write_FCS = FALSE, FCS_suffix = "unmixed",  FCS_dir = ".",
-                  fullOutput = FALSE) {
+                  fullOutput = FALSE,
+                  n_cores = 1) {
 
   if (!is.null(bg)) {
     .bg <- unlist(bg[,rownames(M)])
@@ -501,7 +575,8 @@ Unmix <- function(data, M, bg = NULL,
       UnmixFile(data, M, .bg,
                 unmixing,
                 write_FCS, FCS_suffix, FCS_dir,
-                fullOutput)
+                fullOutput,
+                n_cores)
     } else if (methods::is(data, "flowFrame")) {
       flowCore::exprs(data) %>%
         tibble::as_tibble() %>%
@@ -509,7 +584,8 @@ Unmix <- function(data, M, bg = NULL,
         UnmixFile(M, .bg,
                   unmixing,
                   write_FCS, FCS_suffix, FCS_dir,
-                  fullOutput)
+                  fullOutput,
+                  n_cores)
     } else if (methods::is(data, "flowSet")) {
       purrr::map(flowCore::flowSet_to_list(data), function(dat) {
         flowCore::exprs(dat) %>%
@@ -518,7 +594,8 @@ Unmix <- function(data, M, bg = NULL,
           UnmixFile(M, .bg,
                     unmixing,
                     write_FCS, FCS_suffix, FCS_dir,
-                    fullOutput)
+                    fullOutput,
+                    n_cores)
       })
     } else {
       stop("Input data must be passed as dataframe, tibble, flowframe or flowset.")
@@ -529,7 +606,8 @@ Unmix <- function(data, M, bg = NULL,
         UnmixFile_MultiAF(data, M, .bg,
                           unmixing,
                           write_FCS, FCS_suffix, FCS_dir,
-                          fullOutput)
+                          fullOutput,
+                          n_cores)
       } else if (methods::is(data, "flowFrame")) {
         flowCore::exprs(data) %>%
           tibble::as_tibble() %>%
@@ -537,7 +615,8 @@ Unmix <- function(data, M, bg = NULL,
           UnmixFile_MultiAF(M, .bg,
                             unmixing,
                             write_FCS, FCS_suffix, FCS_dir,
-                            fullOutput)
+                            fullOutput,
+                            n_cores)
       } else if (methods::is(data, "flowSet")) {
         purrr::map(flowCore::flowSet_to_list(data), function(dat) {
           flowCore::exprs(dat) %>%
@@ -546,7 +625,8 @@ Unmix <- function(data, M, bg = NULL,
             UnmixFile_MultiAF(M, .bg,
                               unmixing,
                               write_FCS, FCS_suffix, FCS_dir,
-                              fullOutput)
+                              fullOutput,
+                              n_cores)
         })
       } else {
         stop("Input data must be passed as dataframe, tibble, flowframe or flowset.")

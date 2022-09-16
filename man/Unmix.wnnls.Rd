@@ -4,7 +4,7 @@
 \alias{Unmix.wnnls}
 \title{Weighted NNLS unmixing}
 \usage{
-Unmix.wnnls(dat, M, bg = NULL)
+Unmix.wnnls(dat, M, bg = NULL, n_cores = 1)
 }
 \arguments{
 \item{dat}{dataframe, data to be unmixed}
@@ -12,6 +12,8 @@ Unmix.wnnls(dat, M, bg = NULL)
 \item{M}{unmixing matrix}
 
 \item{bg}{vector of constant background to be subtracted from each event}
+
+\item{n_cores}{Number of cores to use during unmixing (default: 1)}
 }
 \value{
 dataframe with component abundances

@@ -12,7 +12,8 @@ Unmix(
   write_FCS = FALSE,
   FCS_suffix = "unmixed",
   FCS_dir = ".",
-  fullOutput = FALSE
+  fullOutput = FALSE,
+  n_cores = 1
 )
 }
 \arguments{
@@ -34,6 +35,8 @@ absolute percentage error ("MAPE").}
 
 \item{fullOutput}{If TRUE, returns a list containing the reconstructed data and unmixing matrix in addition to the abundances.
 Necessary for the interactive visualization.}
+
+\item{n_cores}{Number of cores to use during unmixing (default: 1)}
 }
 \value{
 List containing the abundances (unmixed). If fullOutput = TRUE, the list also contains the reconstructed data (reconstruction),

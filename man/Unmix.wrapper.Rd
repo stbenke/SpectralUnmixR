@@ -4,7 +4,7 @@
 \alias{Unmix.wrapper}
 \title{Wrapper for all defined unmixing methods}
 \usage{
-Unmix.wrapper(dat, M, bg = NULL, unmixFunc = "OLS")
+Unmix.wrapper(dat, M, bg = NULL, unmixFunc = "OLS", n_cores = 1)
 }
 \arguments{
 \item{dat}{dataframe, data to be unmixed}
@@ -14,6 +14,8 @@ Unmix.wrapper(dat, M, bg = NULL, unmixFunc = "OLS")
 \item{bg}{vector of constant background to be subtracted from each event (default: NULL)}
 
 \item{unmixFunc}{string, unmixing method. OLS, WLS, NNLS, WNNLS or MAPE. (default: "OLS")}
+
+\item{n_cores}{Number of cores to use during unmixing (default: 1)}
 }
 \value{
 matrix with component abundances

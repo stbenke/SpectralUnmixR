@@ -12,7 +12,8 @@ UnmixFile(
   write_FCS = FALSE,
   FCS_suffix = "unmixed",
   FCS_dir = ".",
-  fullOutput = FALSE
+  fullOutput = FALSE,
+  n_cores = 1
 )
 }
 \arguments{
@@ -31,6 +32,8 @@ UnmixFile(
 \item{FCS_dir}{directory to export the FCS files to (default: ".")}
 
 \item{fullOutput}{Add the reconstruction and unmixing matrix to the output (default: FALSE). Needed for the interactive visualization}
+
+\item{n_cores}{Number of cores to use during unmixing (default: 1)}
 }
 \value{
 list(unmixed, reconstruction, M)
