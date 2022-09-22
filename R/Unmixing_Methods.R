@@ -94,11 +94,6 @@ UnmixFunc.wls.nobg <- function(x, M) {
 #'
 #' @return dataframe with component abundances
 Unmix.wls <- function(dat, M, bg = NULL, n_cores = 1) {
-  if (is.null(bg)) {
-    UnmixMatrix(dat, UnmixFunc.wls.nobg, M)
-  } else {
-    UnmixMatrix(dat, UnmixFunc.wls.bg, M, bg)
-  }
   if (n_cores == 1) {
     if (is.null(bg)) {
       UnmixMatrix(dat, UnmixFunc.wls.nobg, M)
@@ -311,7 +306,6 @@ Unmix.wrapper <- function(dat, M, bg = NULL, unmixFunc = "OLS", n_cores = 1) {
 #' @param FCS_suffix suffix added to the FCS files (default: "unmixed")
 #' @param FCS_dir directory to export the FCS files to (default: ".")
 #' @param fullOutput Add the reconstruction and unmixing matrix to the output (default: FALSE). Needed for the interactive visualization
-#' @param n_cores Number of cores to use during unmixing (default: 1)
 #'
 #' @return list(unmixed, reconstruction, M)
 #' @export
@@ -319,8 +313,7 @@ Unmix.wrapper <- function(dat, M, bg = NULL, unmixFunc = "OLS", n_cores = 1) {
 UnmixFile <- function(data, M, bg = NULL,
                       unmixing = "OLS",
                       write_FCS = FALSE, FCS_suffix = "unmixed",  FCS_dir = ".",
-                      fullOutput = FALSE,
-                      n_cores = 1) {
+                      fullOutput = FALSE) {
 
   if (!is.data.frame(data)) {
     stop("Input data must be passed as dataframe or tibble.")
@@ -331,11 +324,11 @@ UnmixFile <- function(data, M, bg = NULL,
 
   # prep data
   measurement <- data %>%
-    dplyr::select(dplyr::all_of(rownames(M))) %>%
+    dplyr::select(tidyselect::all_of(rownames(M))) %>%
     as.matrix
 
   # unmixing
-  abundances <- Unmix.wrapper(measurement, M, bg, unmixing, n_cores)
+  abundances <- Unmix.wrapper(measurement, M, bg, unmixing)
 
   # reconstruction
   if (is.null(bg)) {
@@ -399,7 +392,7 @@ UnmixFile <- function(data, M, bg = NULL,
 #' @param FCS_suffix suffix added to the FCS files (default: "unmixed")
 #' @param FCS_dir directory to export the FCS files to (default: ".")
 #' @param fullOutput Add the reconstruction and unmixing matrix to the output (default: FALSE). Needed for the interactive visualization
-#' @param n_cores Number of cores to use during unmixing (default: 1)
+#' @param n_cores Number of cores to use during unmixing (testing the different unmixing matrices, default: 1)
 #'
 #' @return list(unmixed, reconstruction, M)
 #'
@@ -425,13 +418,19 @@ UnmixFile_MultiAF <- function(data, M, bg = NULL,
   # prep data
   # check if all matrices have same rownames?
   measurement <- data %>%
-    dplyr::select(dplyr::all_of(rownames(M[[1]]))) %>%
+    dplyr::select(tidyselect::all_of(rownames(M[[1]]))) %>%
     as.matrix
 
   # unmixing
   # currently only supports one type of background
-  abundances <- purrr::map(M, ~Unmix.wrapper(measurement, .,
-                                             bg, unmixing, n_cores))
+  if (n_cores > 1) {
+    future::plan(future::multisession(workers = n_cores))
+    abundances <- furrr::map(M, function(x) Unmix.wrapper(measurement, x,
+                                                          bg, unmixing))
+  } else {
+    abundances <- purrr::map(M, function(x) Unmix.wrapper(measurement, x,
+                                                          bg, unmixing))
+  }
 
   # reconstruction
   if (is.null(bg)) {
@@ -462,7 +461,7 @@ UnmixFile_MultiAF <- function(data, M, bg = NULL,
                     ind = which(ind == i))
     for (j in seq_along(M)) {
       if (j != i) {
-        out[[colnames(M[[j]])[ncol(M[[j]])]]] = 0
+        out[[colnames(M[[j]])[ncol(M[[j]])]]] <- 0
       }
     }
     out
@@ -541,7 +540,7 @@ UnmixFile_MultiAF <- function(data, M, bg = NULL,
 #' @param FCS_dir Directory to write the unmixed FCS file to. Default: ".".
 #' @param fullOutput If TRUE, returns a list containing the reconstructed data and unmixing matrix in addition to the abundances.
 #' Necessary for the interactive visualization.
-#' @param n_cores Number of cores to use during unmixing (default: 1)
+#' @param n_cores Number of cores to use during unmixing (testing the different unmixing matrices, default: 1). Only used if a list of unmixing marices is given as M.
 #'
 #' @return List containing the abundances (unmixed). If fullOutput = TRUE, the list also contains the reconstructed data (reconstruction),
 #' and the unmixing matrix. If write_FCS = TRUE, the function also writes an FCS file containing the abundances.
@@ -565,8 +564,7 @@ Unmix <- function(data, M, bg = NULL,
       UnmixFile(data, M, .bg,
                 unmixing,
                 write_FCS, FCS_suffix, FCS_dir,
-                fullOutput,
-                n_cores)
+                fullOutput)
     } else if (methods::is(data, "flowFrame")) {
       flowCore::exprs(data) %>%
         tibble::as_tibble() %>%
@@ -574,8 +572,7 @@ Unmix <- function(data, M, bg = NULL,
         UnmixFile(M, .bg,
                   unmixing,
                   write_FCS, FCS_suffix, FCS_dir,
-                  fullOutput,
-                  n_cores)
+                  fullOutput)
     } else if (methods::is(data, "flowSet")) {
       purrr::map(flowCore::flowSet_to_list(data), function(dat) {
         flowCore::exprs(dat) %>%
@@ -584,8 +581,7 @@ Unmix <- function(data, M, bg = NULL,
           UnmixFile(M, .bg,
                     unmixing,
                     write_FCS, FCS_suffix, FCS_dir,
-                    fullOutput,
-                    n_cores)
+                    fullOutput)
       })
     } else {
       stop("Input data must be passed as dataframe, tibble, flowframe or flowset.")
@@ -645,7 +641,7 @@ MakeM <- function(dye_spectra, channels = NA) {
   }
 
   dye_spectra %>%
-    dplyr::select(dplyr::all_of(channels_used)) %>%
+    dplyr::select(tidyselect::all_of(channels_used)) %>%
     as.matrix %>%
     t %>%
     magrittr::set_colnames(dye_spectra$file)
@@ -674,7 +670,7 @@ MakeMList <- function(AF, dye_spectra, channels = NULL) {
 
   purrr::map(1:nrow(AF), function(i) {
     dplyr::bind_rows(dye_spectra, dplyr::mutate(AF[i,], file = as.character(.data$file))) %>%
-      dplyr::select(dplyr::all_of(channels_used)) %>%
+      dplyr::select(tidyselect::all_of(channels_used)) %>%
       as.matrix %>%
       t %>%
       magrittr::set_colnames(c(dye_spectra$file, stringr::str_c("AF", i)))

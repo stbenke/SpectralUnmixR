@@ -21,10 +21,10 @@ UnmixingViz <- function(unmixing, original,
     dplyr::slice(sel)
   M <- unmixing$M
   abundances <- as.matrix(dplyr::select(unmixing$unmixed,
-                                        dplyr::all_of(colnames(M))))
+                                        tidyselect::all_of(colnames(M))))
   reconstruction <- unmixing$reconstruction
   measurement <- dplyr::select(original,
-                               dplyr::all_of(rownames(M)))
+                               tidyselect::all_of(rownames(M)))
   markers <- colnames(M)
 
 
@@ -239,14 +239,14 @@ UnmixingCompViz <- function(unmixing1, unmixing2,
   M2 <- unmixing2$M
 
   abundances1 <- as.matrix(dplyr::select(unmixing1$unmixed,
-                                         dplyr::all_of(colnames(M1))))
+                                         tidyselect::all_of(colnames(M1))))
   abundances2 <- as.matrix(dplyr::select(unmixing2$unmixed,
-                                         dplyr::all_of(colnames(M2))))
+                                         tidyselect::all_of(colnames(M2))))
 
   reconstruction1 <- unmixing1$reconstruction
   reconstruction2 <- unmixing2$reconstruction
 
-  measurement <- dplyr::select(original, dplyr::all_of(rownames(M1)))
+  measurement <- dplyr::select(original, tidyselect::all_of(rownames(M1)))
 
   markers <- colnames(M1)
 
@@ -560,7 +560,7 @@ PlotMxN <- function(marker, dat_unmixed,
 
   plot <- dat_unmixed %>%
     dplyr::filter(file == marker) %>%
-    dplyr::select(dplyr::all_of(markers)) %>%
+    dplyr::select(tidyselect::all_of(markers)) %>%
     tidyr::pivot_longer(cols = markers[markers != marker],
                  names_to = "channel", values_to = "signal") %>%
     dplyr::mutate(channel = factor(.data$channel, markers)) %>%

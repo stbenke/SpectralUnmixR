@@ -611,11 +611,11 @@ PlotSpectra <- function(dat,
   files <- unique(dat$file)
 
   dat <- dat %>%
-    dplyr::mutate_at(dplyr::all_of(channels_used), function(x) asinh(x/transformation))
+    dplyr::mutate_at(tidyselect::all_of(channels_used), function(x) asinh(x/transformation))
 
   dat_binned <- purrr::map_dfr(files, function(f) {
     dat_tmp <- dplyr::filter(dat, .data$file == f) %>%
-      dplyr::select(dplyr::all_of(channels_used))
+      dplyr::select(tidyselect::all_of(channels_used))
     purrr::map_dfr(channels_used, function(ch) {
       bin_counts <- table(cut(dat_tmp[[ch]], breaks = bins))
 
@@ -679,7 +679,7 @@ PlotRefSpectra <- function(spectra, channels = NULL, transformation = NULL) {
 
   spectra %>%
     dplyr::mutate(id = 1:dplyr::n()) %>%
-    tidyr::pivot_longer(cols = tidyr::all_of(channels),
+    tidyr::pivot_longer(cols = tidyselect::all_of(channels),
                         names_to = "channel", values_to = "signal") %>%
     dplyr::mutate(channel = factor(.data$channel, channels),
                   signal = if (!is.null(transformation) & is.numeric(transformation)) {

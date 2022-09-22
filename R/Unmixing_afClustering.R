@@ -27,13 +27,13 @@ ClusterSelection <- function(dat, clusters,
 
   # add clustering result, calculate median signals
   dat_clust <- dat %>%
-    dplyr::select(dplyr::all_of(channels_used)) %>%
+    dplyr::select(tidyselect::all_of(channels_used)) %>%
     dplyr::mutate(cluster = clusters) %>%
     dplyr::group_by(.data$cluster) %>%
-    dplyr::summarise_at(dplyr::all_of(channels_used), function(x) stats::median(x)) %>%
+    dplyr::summarise_at(tidyselect::all_of(channels_used), function(x) stats::median(x)) %>%
     dplyr::ungroup() %>%
     dplyr::rowwise() %>%
-    dplyr::mutate(max = max(dplyr::c_across(dplyr::all_of(channels_used)))) %>%
+    dplyr::mutate(max = max(dplyr::c_across(tidyselect::all_of(channels_used)))) %>%
     dplyr::ungroup() %>%
     dplyr::arrange(.data$cluster) %>%
     dplyr::mutate(cluster_count = cluster_counts)
@@ -54,7 +54,7 @@ ClusterSelection <- function(dat, clusters,
     }
 
     sim <- CosSim(dat_clust %>%
-                    dplyr::select(dplyr::all_of(channels_used)) %>%
+                    dplyr::select(tidyselect::all_of(channels_used)) %>%
                     as.matrix)
     diag(sim) <- 0
 
@@ -110,7 +110,7 @@ ClusterSelection <- function(dat, clusters,
     spectra = if (!is.null(csim_max)) {
       if (selection == "max") {
         dat_clust %>%
-          dplyr::select(dplyr::all_of(channels_used)) %>%
+          dplyr::select(tidyselect::all_of(channels_used)) %>%
           as.matrix %>%
           apply(1, function(x) x/max(x)) %>%
           t() %>%
@@ -118,10 +118,10 @@ ClusterSelection <- function(dat, clusters,
           dplyr::mutate(cluster = dat_clust$cluster) %>%
           dplyr::filter(.data$cluster %in% cluster_sel) %>%
           dplyr::rename(file = .data$cluster) %>%
-          dplyr::select(dplyr::all_of(c(channels_used, "file")))
+          dplyr::select(tidyselect::all_of(c(channels_used, "file")))
       } else if (selection == "median") {
         dat %>%
-          dplyr::select(dplyr::all_of(channels_used)) %>%
+          dplyr::select(tidyselect::all_of(channels_used)) %>%
           dplyr::mutate(cluster = clusters) %>%
           dplyr::filter(if (!is.null(count_min)) {
             .data$cluster %in% unique(dat_clust$cluster)
@@ -130,11 +130,11 @@ ClusterSelection <- function(dat, clusters,
           }) %>%
           dplyr::left_join(cluster_groups, by = "cluster") %>%
           dplyr::group_by(.data$group) %>%
-          dplyr::summarise_at(dplyr::all_of(channels_used),
+          dplyr::summarise_at(tidyselect::all_of(channels_used),
                               function(x) stats::median(x)) %>%
           dplyr::ungroup() %>%
           dplyr::arrange(.data$group) %>%
-          dplyr::select(dplyr::all_of(channels_used)) %>%
+          dplyr::select(tidyselect::all_of(channels_used)) %>%
           as.matrix %>%
           apply(1, function(x) x/max(x)) %>%
           t() %>%
@@ -143,14 +143,14 @@ ClusterSelection <- function(dat, clusters,
       }
     } else {
       dat_clust %>%
-        dplyr::select(dplyr::all_of(channels_used)) %>%
+        dplyr::select(tidyselect::all_of(channels_used)) %>%
         as.matrix %>%
         apply(1, function(x) x/max(x)) %>%
         t() %>%
         tibble::as_tibble() %>%
         dplyr::mutate(cluster = dat_clust$cluster) %>%
         dplyr::rename(file = .data$cluster) %>%
-        dplyr::select(dplyr::all_of(c(channels_used, "file")))
+        dplyr::select(tidyselect::all_of(c(channels_used, "file")))
     },
     cluster_selection = if (!is.null(csim_max) && selection == "max") cluster_sel else NULL,
     cluster_groups = if (!is.null(csim_max)) cluster_groups else NULL,
@@ -190,7 +190,7 @@ PlotSpectraClusters <- function(input, transformation = 0.1,
   }
 
   spectra_prep_all <- dat_cluster %>%
-    tidyr::pivot_longer(cols = dplyr::all_of(input$channels_used),
+    tidyr::pivot_longer(cols = tidyselect::all_of(input$channels_used),
                         values_to = "mean",
                         names_to = "channel") %>%
     dplyr::group_by(.data$cluster) %>%
@@ -208,7 +208,7 @@ PlotSpectraClusters <- function(input, transformation = 0.1,
     }
     spectra_prep_sel <- spectra_prep_sel %>%
       dplyr::mutate(cluster = (max(input$clusters)+1):(max(input$clusters)+nrow(input$spectra))) %>%
-      tidyr::pivot_longer(cols = dplyr::all_of(input$channels_used),
+      tidyr::pivot_longer(cols = tidyselect::all_of(input$channels_used),
                           values_to = "mean",
                           names_to = "channel") %>%
       dplyr::mutate(channel = factor(.data$channel, input$channels_used),
@@ -216,7 +216,7 @@ PlotSpectraClusters <- function(input, transformation = 0.1,
   } else {
     spectra_prep_sel <- input$spectra %>%
       dplyr::mutate(cluster = .data$file) %>%
-      tidyr::pivot_longer(cols = dplyr::all_of(input$channels_used),
+      tidyr::pivot_longer(cols = tidyselect::all_of(input$channels_used),
                           values_to = "mean",
                           names_to = "channel") %>%
       dplyr::mutate(channel = factor(.data$channel, input$channels_used),
@@ -293,7 +293,7 @@ PlotScatterClusters <- function(input,
   }
 
   if (!is.null(transformation)) {
-    dat <- dplyr::mutate_at(dplyr::all_of(scatter_channels, function(x) {
+    dat <- dplyr::mutate_at(tidyselect::all_of(scatter_channels, function(x) {
       asinh(x/transformation)
     }))
   }
