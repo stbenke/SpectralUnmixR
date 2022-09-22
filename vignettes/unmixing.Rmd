@@ -228,7 +228,7 @@ Use the write_FCS argument to write the unmixing result directly to an FCS file.
 ols <- Unmix(d_sample, M, unmixing = "OLS", fullOutput = T)
 
 ols_constantAF <- Unmix(d_sample, M_noAF,
-                        bg = d_cells_unstained_median, 
+                        bg = GetMedianData(d_cells_unstained), 
                         unmixing = "OLS", fullOutput = T)
 ```
 

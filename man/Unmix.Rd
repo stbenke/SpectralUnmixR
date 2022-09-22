@@ -36,7 +36,7 @@ absolute percentage error ("MAPE").}
 \item{fullOutput}{If TRUE, returns a list containing the reconstructed data and unmixing matrix in addition to the abundances.
 Necessary for the interactive visualization.}
 
-\item{n_cores}{Number of cores to use during unmixing (default: 1)}
+\item{n_cores}{Number of cores to use during unmixing (testing the different unmixing matrices, default: 1). Only used if a list of unmixing marices is given as M.}
 }
 \value{
 List containing the abundances (unmixed). If fullOutput = TRUE, the list also contains the reconstructed data (reconstruction),

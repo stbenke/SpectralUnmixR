@@ -510,6 +510,7 @@ CosSim <- function(m) {
 #' @param transformation numeric, optional asinh transform of the spectra. Default: 0.01 If you want to transform the normalized spectra, pass the cofactor of the asinh transformation. Note: The spectra are max normalized to 1 so your usual cofactors will not work here. Try cofactors around 0.01.
 #' @param bins numeric, number of bins to use in the channel heatmaps (default: 50)
 #' @param ncol integer, number of columns of the facet plot (default: NULL, i.e. automatic)
+#' @param ... options passed to GetData and GetMedianData (only applicable if data in input_list not already given as dataframe)
 #'
 #' @return Plot of single stain variability, faceted by single stain. The red line shows the calculated reference spectra, the blue lines the (autofluorescence subtracted) single stain events. The blue shade indicates the average similarity of that event to all other events (light blue: more similar, dark blue: less dissimilar).
 #' @export

@@ -33,7 +33,7 @@ UnmixFile_MultiAF(
 
 \item{fullOutput}{Add the reconstruction and unmixing matrix to the output (default: FALSE). Needed for the interactive visualization}
 
-\item{n_cores}{Number of cores to use during unmixing (default: 1)}
+\item{n_cores}{Number of cores to use during unmixing (testing the different unmixing matrices, default: 1)}
 }
 \value{
 list(unmixed, reconstruction, M)

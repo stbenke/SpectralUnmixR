@@ -23,8 +23,10 @@ UnmixMatrix <- function(dat, UnmixFun, ...) {
 #' @return abundance matrix
 #'
 UnmixMatrix_par <- function(n_cores, dat, UnmixFun, ...) {
-  future::plan(future::multisession, workers = n_cores)
-  t(future.apply::future_apply(dat, 1, match.fun(UnmixFun), ...))
+  # currently not supported (does not increase unmixing speed)
+  stop("paralellized unmixing currently not supported. set n_cores = 1")
+  # future::plan(future::multisession, workers = n_cores)
+  # t(future.apply::future_apply(dat, 1, match.fun(UnmixFun), ...))
 }
 
 
@@ -424,9 +426,9 @@ UnmixFile_MultiAF <- function(data, M, bg = NULL,
   # unmixing
   # currently only supports one type of background
   if (n_cores > 1) {
-    future::plan(future::multisession(workers = n_cores))
-    abundances <- furrr::map(M, function(x) Unmix.wrapper(measurement, x,
-                                                          bg, unmixing))
+    future::plan(future::multisession, workers = n_cores)
+    abundances <- furrr::future_map(M, function(x) Unmix.wrapper(measurement, x,
+                                                                 bg, unmixing))
   } else {
     abundances <- purrr::map(M, function(x) Unmix.wrapper(measurement, x,
                                                           bg, unmixing))

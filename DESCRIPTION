@@ -12,6 +12,8 @@ RoxygenNote: 7.2.1
 Imports: 
     dplyr,
     flowCore,
+    furrr,
+    future,
     ggcyto,
     ggplot2,
     magrittr,

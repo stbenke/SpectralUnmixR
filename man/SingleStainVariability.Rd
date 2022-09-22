@@ -26,6 +26,8 @@ SingleStainVariability(
 \item{bins}{numeric, number of bins to use in the channel heatmaps (default: 50)}
 
 \item{ncol}{integer, number of columns of the facet plot (default: NULL, i.e. automatic)}
+
+\item{...}{options passed to GetData and GetMedianData (only applicable if data in input_list not already given as dataframe)}
 }
 \value{
 Plot of single stain variability, faceted by single stain. The red line shows the calculated reference spectra, the blue lines the (autofluorescence subtracted) single stain events. The blue shade indicates the average similarity of that event to all other events (light blue: more similar, dark blue: less dissimilar).

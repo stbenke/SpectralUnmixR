@@ -78,8 +78,8 @@ channels <- colnames(d_beads_pos_median) %>%
   .[str_detect(., "-A")] %>% 
   .[!str_detect(., "SC")]
 
-spectra_median <- MedianSpectra(d_beads_pos_median, 
-                                d_beads_neg_median,
+spectra_median <- MedianSpectra(list(list(pos = d_beads_pos_median, 
+                                          neg = d_beads_neg_median)),
                                 channels) %>% 
   suppressWarnings()
 
