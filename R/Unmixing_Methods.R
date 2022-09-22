@@ -296,6 +296,40 @@ Unmix.wrapper <- function(dat, M, bg = NULL, unmixFunc = "OLS", n_cores = 1) {
 
 # Unmixing wrappers -------------------------------------------------------
 
+#' Reconstruction error
+#'
+#' Calculates the reconstruction error of the unmixing. Current options for the error calculation are:
+#'
+#' - Sum of squares (SoS)
+#' - Root mean square deviation (RMSD)
+#' - Mean absolute error (MAE)
+#' - Mean absolute percentage error (MAPE)
+#' - Cosine distance (CosineDistance) 1 - Cosine similarity
+#' - Wasserstein distance (WassersteinDistance) Note: slow compared to the others
+#'
+#' @param measurement data matrix of the original measurement
+#' @param reconstruction data matrix of the reconstructed signals
+#' @param error the type of error to calculate. currently supported: SoS, RMSD, MAE, MAPE, CosineSimilarity, WassersteinDistance
+#'
+#' @return vector with the reconstruction error for each row
+CalcError <- function(measurement, reconstruction, error = "SoS") {
+  if (error == "SoS") {
+    rowSums((measurement - reconstruction)^2)
+  } else if (error == "RMSD") {
+    rowMeans((measurement - reconstruction)^2)^0.5
+  } else if (error == "MAE") {
+    rowMeans(abs(measurement - reconstruction))
+  } else if (error == "MAPE") {
+    rowMeans(abs(measurement - reconstruction) / abs(measurement)) * 100
+  } else if (error == "CosineDistance") {
+    1 - rowSums(measurement * reconstruction) / (rowSums(measurement^2) * rowSums(reconstruction^2))^0.5
+  } else if (error == "WassersteinDistance") {
+    purrr::map_dbl(1:nrow(measurement), function(i) {
+      waddR::wasserstein_metric(measurement[i,], reconstruction[i,])
+    })
+  }
+}
+
 #' Unmix a dataset
 #'
 #' Use inside Unmix wrapper.
@@ -304,6 +338,7 @@ Unmix.wrapper <- function(dat, M, bg = NULL, unmixFunc = "OLS", n_cores = 1) {
 #' @param M unmixing matrix
 #' @param bg dataframe containing background (optional)
 #' @param unmixing unmixing function to use (string)
+#' @param error type of error to calculate for the unmixing result (NOT used during unmixing itself!). The error will be added as an "error" column to the unmixed output. Choices: Sum of squares ("SoS"), Root mean square deviation ("RMSD"), Mean absolute error ("MAE"), Mean absolute percentage error ("MAPE"), Cosine distance ("CosineDistance"), Wasserstein distance ("WassersteinDistance", slow!)
 #' @param write_FCS write output into FCS files (default: FALSE)
 #' @param FCS_suffix suffix added to the FCS files (default: "unmixed")
 #' @param FCS_dir directory to export the FCS files to (default: ".")
@@ -314,6 +349,7 @@ Unmix.wrapper <- function(dat, M, bg = NULL, unmixFunc = "OLS", n_cores = 1) {
 #'
 UnmixFile <- function(data, M, bg = NULL,
                       unmixing = "OLS",
+                      error = "SoS",
                       write_FCS = FALSE, FCS_suffix = "unmixed",  FCS_dir = ".",
                       fullOutput = FALSE) {
 
@@ -340,13 +376,12 @@ UnmixFile <- function(data, M, bg = NULL,
   }
 
   # get unmixing error
-  # todo: implement other errors
-  total_squared_error <- rowSums((measurement - reconstruction)^2)
+  error <- CalcError(measurement, reconstruction, error = error)
 
   # add not unmixed columns and error
   abundances_out <- abundances %>%
     dplyr::as_tibble() %>%
-    dplyr::mutate(error = total_squared_error) %>%
+    dplyr::mutate(error = error) %>%
     dplyr::bind_cols(dplyr::select(data, -c(rownames(M), "file"))) # add scatter
 
   # write FCS files
@@ -390,6 +425,7 @@ UnmixFile <- function(data, M, bg = NULL,
 #' @param M list of unmixing matrices
 #' @param bg dataframe containing background (optional)
 #' @param unmixing unmixing function to use (string)
+#' @param error type of error to calculate for the unmixing result (NOT used during unmixing itself!). Determines which AF population is used to unmix each cell. The error will be added as an "error" column to the unmixed output. Choices: Sum of squares ("SoS"), Root mean square deviation ("RMSD"), Mean absolute error ("MAE"), Mean absolute percentage error ("MAPE"), Cosine distance ("CosineDistance"), Wasserstein distance ("WassersteinDistance", slow!)
 #' @param write_FCS write output into FCS files (default: FALSE)
 #' @param FCS_suffix suffix added to the FCS files (default: "unmixed")
 #' @param FCS_dir directory to export the FCS files to (default: ".")
@@ -402,6 +438,7 @@ UnmixFile <- function(data, M, bg = NULL,
 #'
 UnmixFile_MultiAF <- function(data, M, bg = NULL,
                               unmixing = "OLS",
+                              error = "SoS",
                               write_FCS = FALSE, FCS_suffix = "unmixed",  FCS_dir = ".",
                               fullOutput = FALSE,
                               n_cores = 1) {
@@ -446,12 +483,12 @@ UnmixFile_MultiAF <- function(data, M, bg = NULL,
   }
 
   # unmixing error
-  total_squared_error <- do.call(cbind, purrr::map(reconstruction, function(r) {
-    rowSums((measurement - r)^2)
+  error <- do.call(cbind, purrr::map(reconstruction, function(r) {
+    CalcError(measurement, r, error = error)
   }))
 
   # best unmixing for each event
-  ind <- apply(total_squared_error, 1, which.min)
+  ind <- apply(error, 1, which.min)
 
   abundances_out <- purrr::map_dfr(seq_along(M), function(i) {
     tmp <- which(ind == i)
@@ -459,7 +496,7 @@ UnmixFile_MultiAF <- function(data, M, bg = NULL,
       dplyr::as_tibble() %>%
       dplyr::bind_cols(dplyr::select(data[tmp,],
                                      !c(colnames(measurement), "file"))) %>%
-      dplyr::mutate(error = total_squared_error[tmp,i],
+      dplyr::mutate(error = error[tmp,i],
                     ind = which(ind == i))
     for (j in seq_along(M)) {
       if (j != i) {
@@ -537,6 +574,11 @@ UnmixFile_MultiAF <- function(data, M, bg = NULL,
 #' @param unmixing Unmixing method to use passed as string. Currently supported methods are: ordinary least squares ("OLS"),
 #'  weighted least squares ("WLS"), non-negative least squares ("NNLS"), weighted non-negative least squares ("WNNLS") and mean
 #'  absolute percentage error ("MAPE").
+#' @param error Type of error to calculate for the unmixing result (NOT used during unmixing itself!).
+#'  The error will be added as an "error" column to the unmixed output and determines which autofluorescence population is chosen for the unmixing of each cell in case multiple AF populations are present (list of Ms given to function).
+#'  Choices: Sum of squares ("SoS"), Root mean square deviation ("RMSD"),
+#'  Mean absolute error ("MAE"), Mean absolute percentage error ("MAPE"),
+#'  Cosine distance ("CosineDistance"), Wasserstein distance ("WassersteinDistance", slow!)
 #' @param write_FCS Write unmixed file to FCS file (TRUE / FALSE (default))?
 #' @param FCS_suffix Suffix to be added to the unmixed FCS file name. Default: "unmixed".
 #' @param FCS_dir Directory to write the unmixed FCS file to. Default: ".".
@@ -551,6 +593,7 @@ UnmixFile_MultiAF <- function(data, M, bg = NULL,
 #'
 Unmix <- function(data, M, bg = NULL,
                   unmixing = "OLS",
+                  error = "SoS",
                   write_FCS = FALSE, FCS_suffix = "unmixed",  FCS_dir = ".",
                   fullOutput = FALSE,
                   n_cores = 1) {
@@ -565,6 +608,7 @@ Unmix <- function(data, M, bg = NULL,
     if (is.data.frame(data)) {
       UnmixFile(data, M, .bg,
                 unmixing,
+                error,
                 write_FCS, FCS_suffix, FCS_dir,
                 fullOutput)
     } else if (methods::is(data, "flowFrame")) {
@@ -573,6 +617,7 @@ Unmix <- function(data, M, bg = NULL,
         dplyr::mutate(file = flowCore::keyword(data, "$FIL")[[1]]) %>%
         UnmixFile(M, .bg,
                   unmixing,
+                  error,
                   write_FCS, FCS_suffix, FCS_dir,
                   fullOutput)
     } else if (methods::is(data, "flowSet")) {
@@ -582,6 +627,7 @@ Unmix <- function(data, M, bg = NULL,
           dplyr::mutate(file = flowCore::keyword(data, "$FIL")[[1]]) %>%
           UnmixFile(M, .bg,
                     unmixing,
+                    error,
                     write_FCS, FCS_suffix, FCS_dir,
                     fullOutput)
       })
@@ -593,6 +639,7 @@ Unmix <- function(data, M, bg = NULL,
       if (is.data.frame(data)) {
         UnmixFile_MultiAF(data, M, .bg,
                           unmixing,
+                          error,
                           write_FCS, FCS_suffix, FCS_dir,
                           fullOutput,
                           n_cores)
@@ -602,6 +649,7 @@ Unmix <- function(data, M, bg = NULL,
           dplyr::mutate(file = flowCore::keyword(data, "$FIL")[[1]]) %>%
           UnmixFile_MultiAF(M, .bg,
                             unmixing,
+                            error,
                             write_FCS, FCS_suffix, FCS_dir,
                             fullOutput,
                             n_cores)
@@ -612,6 +660,7 @@ Unmix <- function(data, M, bg = NULL,
             dplyr::mutate(file = flowCore::keyword(data, "$FIL")[[1]]) %>%
             UnmixFile_MultiAF(M, .bg,
                               unmixing,
+                              error,
                               write_FCS, FCS_suffix, FCS_dir,
                               fullOutput,
                               n_cores)

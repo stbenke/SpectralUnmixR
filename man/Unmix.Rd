@@ -9,6 +9,7 @@ Unmix(
   M,
   bg = NULL,
   unmixing = "OLS",
+  error = "SoS",
   write_FCS = FALSE,
   FCS_suffix = "unmixed",
   FCS_dir = ".",
@@ -26,6 +27,12 @@ Unmix(
 \item{unmixing}{Unmixing method to use passed as string. Currently supported methods are: ordinary least squares ("OLS"),
 weighted least squares ("WLS"), non-negative least squares ("NNLS"), weighted non-negative least squares ("WNNLS") and mean
 absolute percentage error ("MAPE").}
+
+\item{error}{Type of error to calculate for the unmixing result (NOT used during unmixing itself!).
+The error will be added as an "error" column to the unmixed output and determines which autofluorescence population is chosen for the unmixing of each cell in case multiple AF populations are present (list of Ms given to function).
+Choices: Sum of squares ("SoS"), Root mean square deviation ("RMSD"),
+Mean absolute error ("MAE"), Mean absolute percentage error ("MAPE"),
+Cosine distance ("CosineDistance"), Wasserstein distance ("WassersteinDistance", slow!)}
 
 \item{write_FCS}{Write unmixed file to FCS file (TRUE / FALSE (default))?}
 

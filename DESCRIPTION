@@ -29,7 +29,8 @@ Imports:
     stringr,
     tibble,
     tidyr,
-    tidyselect
+    tidyselect,
+    waddR
 Suggests: 
     BiocManager,
     devtools,

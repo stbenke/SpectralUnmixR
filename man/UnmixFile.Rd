@@ -9,6 +9,7 @@ UnmixFile(
   M,
   bg = NULL,
   unmixing = "OLS",
+  error = "SoS",
   write_FCS = FALSE,
   FCS_suffix = "unmixed",
   FCS_dir = ".",
@@ -23,6 +24,8 @@ UnmixFile(
 \item{bg}{dataframe containing background (optional)}
 
 \item{unmixing}{unmixing function to use (string)}
+
+\item{error}{type of error to calculate for the unmixing result (NOT used during unmixing itself!). The error will be added as an "error" column to the unmixed output. Choices: Sum of squares ("SoS"), Root mean square deviation ("RMSD"), Mean absolute error ("MAE"), Mean absolute percentage error ("MAPE"), Cosine distance ("CosineDistance"), Wasserstein distance ("WassersteinDistance", slow!)}
 
 \item{write_FCS}{write output into FCS files (default: FALSE)}
 
