@@ -430,7 +430,6 @@ UnmixFile <- function(data, M, bg = NULL,
 #' @param FCS_suffix suffix added to the FCS files (default: "unmixed")
 #' @param FCS_dir directory to export the FCS files to (default: ".")
 #' @param fullOutput Add the reconstruction and unmixing matrix to the output (default: FALSE). Needed for the interactive visualization
-#' @param n_cores Number of cores to use during unmixing (testing the different unmixing matrices, default: 1)
 #'
 #' @return list(unmixed, reconstruction, M)
 #'
@@ -440,8 +439,7 @@ UnmixFile_MultiAF <- function(data, M, bg = NULL,
                               unmixing = "OLS",
                               error = "SoS",
                               write_FCS = FALSE, FCS_suffix = "unmixed",  FCS_dir = ".",
-                              fullOutput = FALSE,
-                              n_cores = 1) {
+                              fullOutput = FALSE) {
 
   if (!is.data.frame(data)) {
     stop("Input data must be passed as dataframe or tibble.")
@@ -460,37 +458,17 @@ UnmixFile_MultiAF <- function(data, M, bg = NULL,
     dplyr::select(tidyselect::all_of(rownames(M[[1]]))) %>%
     as.matrix
 
-  # unmixing
-  # currently only supports one type of background
-  if (n_cores > 1) {
-    future::plan(future::multisession, workers = n_cores)
-    abundances <- furrr::future_map(M, function(x) Unmix.wrapper(measurement, x,
-                                                                 bg, unmixing))
-  } else {
-    abundances <- purrr::map(M, function(x) Unmix.wrapper(measurement, x,
-                                                          bg, unmixing))
-  }
-
-  # reconstruction
-  if (is.null(bg)) {
-    reconstruction <- purrr::map2(abundances, M, function(a, m) {
+  # reconstruction function
+  rec <- function(a, m) {
+    if (is.null(bg)) {
       a %*% t(m)
-    })
-  } else {
-    reconstruction <- purrr::map2(abundances, M, function(a, m) {
+    } else {
       sweep(a %*% t(m), 2, bg, FUN = "+")
-    })
+    }
   }
 
-  # unmixing error
-  error <- do.call(cbind, purrr::map(reconstruction, function(r) {
-    CalcError(measurement, r, error = error)
-  }))
-
-  # best unmixing for each event
-  ind <- apply(error, 1, which.min)
-
-  abundances_out <- purrr::map_dfr(seq_along(M), function(i) {
+  # abundance selection function
+  abSel <- function(i) {
     tmp <- which(ind == i)
     out <- abundances[[i]][tmp,] %>%
       dplyr::as_tibble() %>%
@@ -504,7 +482,21 @@ UnmixFile_MultiAF <- function(data, M, bg = NULL,
       }
     }
     out
-  }) %>%
+  }
+
+  # unmixing
+  abundances <- furrr::future_map(M, function(x) Unmix.wrapper(measurement, x,
+                                                               bg, unmixing))
+  # reconstruction
+  reconstruction <- purrr::map2(abundances, M, rec)
+  # unmixing error
+  error <- do.call(cbind, purrr::map(reconstruction, function(r) {
+    CalcError(measurement, r, error = error)
+  }))
+  # best unmixing for each event
+  ind <- apply(error, 1, which.min)
+  # selecting best results
+  abundances_out <- purrr::map_dfr(seq_along(M), abSel) %>%
     dplyr::arrange(ind) %>% # put into original order again
     dplyr::select(-ind)
 
@@ -568,6 +560,8 @@ UnmixFile_MultiAF <- function(data, M, bg = NULL,
 #' Spectral unmixing using OLS, WLS, NNLS, WNNLS or MAPE with one or multiple autofluorescence populations.
 #' For all weighted algorithms: For the weight of negative values, the absolute is taken and for 0 values, an offset of 0.05 is added.
 #'
+#' In case multiple autofluorescence populations are supplied, the unmixing can be parallelized using the future package.
+#'
 #' @param data Raw data to be unmixed. Can be passed as dataframe, tibble, flowframe or flowSet.
 #' @param M Matrix containing the component spectra or list of such matrices.
 #' @param bg Constant background or autofluorescence to be subtracted of events before unmixing (dataframe). Default: NULL
@@ -583,8 +577,7 @@ UnmixFile_MultiAF <- function(data, M, bg = NULL,
 #' @param FCS_suffix Suffix to be added to the unmixed FCS file name. Default: "unmixed".
 #' @param FCS_dir Directory to write the unmixed FCS file to. Default: ".".
 #' @param fullOutput If TRUE, returns a list containing the reconstructed data and unmixing matrix in addition to the abundances.
-#' Necessary for the interactive visualization.
-#' @param n_cores Number of cores to use during unmixing (testing the different unmixing matrices, default: 1). Only used if a list of unmixing marices is given as M.
+#'  Necessary for the interactive visualization.
 #'
 #' @return List containing the abundances (unmixed). If fullOutput = TRUE, the list also contains the reconstructed data (reconstruction),
 #' and the unmixing matrix. If write_FCS = TRUE, the function also writes an FCS file containing the abundances.
@@ -595,8 +588,7 @@ Unmix <- function(data, M, bg = NULL,
                   unmixing = "OLS",
                   error = "SoS",
                   write_FCS = FALSE, FCS_suffix = "unmixed",  FCS_dir = ".",
-                  fullOutput = FALSE,
-                  n_cores = 1) {
+                  fullOutput = FALSE) {
 
   if (!is.null(bg)) {
     .bg <- unlist(bg[,rownames(M)])
@@ -641,8 +633,7 @@ Unmix <- function(data, M, bg = NULL,
                           unmixing,
                           error,
                           write_FCS, FCS_suffix, FCS_dir,
-                          fullOutput,
-                          n_cores)
+                          fullOutput)
       } else if (methods::is(data, "flowFrame")) {
         flowCore::exprs(data) %>%
           tibble::as_tibble() %>%
@@ -651,8 +642,7 @@ Unmix <- function(data, M, bg = NULL,
                             unmixing,
                             error,
                             write_FCS, FCS_suffix, FCS_dir,
-                            fullOutput,
-                            n_cores)
+                            fullOutput)
       } else if (methods::is(data, "flowSet")) {
         purrr::map(flowCore::flowSet_to_list(data), function(dat) {
           flowCore::exprs(dat) %>%
@@ -662,8 +652,7 @@ Unmix <- function(data, M, bg = NULL,
                               unmixing,
                               error,
                               write_FCS, FCS_suffix, FCS_dir,
-                              fullOutput,
-                              n_cores)
+                              fullOutput)
         })
       } else {
         stop("Input data must be passed as dataframe, tibble, flowframe or flowset.")
