@@ -325,7 +325,10 @@ CalcError <- function(measurement, reconstruction, error = "SoS") {
     1 - rowSums(measurement * reconstruction) / (rowSums(measurement^2) * rowSums(reconstruction^2))^0.5
   } else if (error == "WassersteinDistance") {
     purrr::map_dbl(1:nrow(measurement), function(i) {
-      waddR::wasserstein_metric(measurement[i,], reconstruction[i,])
+      waddR::wasserstein_metric(x = seq_along(measurement[i,]),
+                                y = seq_along(reconstruction[i,]),
+                                wa_ = measurement[i,],
+                                wb_ = reconstruction[i,])
     })
   }
 }
@@ -429,7 +432,8 @@ UnmixFile <- function(data, M, bg = NULL,
 #' @param write_FCS write output into FCS files (default: FALSE)
 #' @param FCS_suffix suffix added to the FCS files (default: "unmixed")
 #' @param FCS_dir directory to export the FCS files to (default: ".")
-#' @param fullOutput Add the reconstruction and unmixing matrix to the output (default: FALSE). Needed for the interactive visualization
+#' @param fullOutput add the reconstruction and unmixing matrix to the output (default: FALSE). Needed for the interactive visualization
+#' @param verbose TRUE/FALSE displays progress messages when set to TRUE (default)
 #'
 #' @return list(unmixed, reconstruction, M)
 #'
@@ -439,7 +443,8 @@ UnmixFile_MultiAF <- function(data, M, bg = NULL,
                               unmixing = "OLS",
                               error = "SoS",
                               write_FCS = FALSE, FCS_suffix = "unmixed",  FCS_dir = ".",
-                              fullOutput = FALSE) {
+                              fullOutput = FALSE,
+                              verbose = T) {
 
   if (!is.data.frame(data)) {
     stop("Input data must be passed as dataframe or tibble.")
@@ -485,23 +490,32 @@ UnmixFile_MultiAF <- function(data, M, bg = NULL,
   }
 
   # unmixing
+  if (verbose) message("Starting the unmixing.\n")
   abundances <- furrr::future_map(M, function(x) Unmix.wrapper(measurement, x,
-                                                               bg, unmixing))
+                                                               bg, unmixing),
+                                  .progress = verbose)
+  if (verbose) message("Unmixing done.\n")
   # reconstruction
+  if (verbose) message("Calculating reconstructions\n")
   reconstruction <- purrr::map2(abundances, M, rec)
+  if (verbose) message("Reconstructions done.\n")
   # unmixing error
+  if (verbose) message("Calculating unmixing errors.\n")
   error <- do.call(cbind, purrr::map(reconstruction, function(r) {
     CalcError(measurement, r, error = error)
   }))
+  if (verbose) message("Error calculation done.\n")
   # best unmixing for each event
+  if (verbose) message("Selecting best unmixing result for each cell.\n")
   ind <- apply(error, 1, which.min)
   # selecting best results
   abundances_out <- purrr::map_dfr(seq_along(M), abSel) %>%
     dplyr::arrange(ind) %>% # put into original order again
     dplyr::select(-ind)
-
+  if (verbose) message("Selection done.\n")
   # write FCS
   if (write_FCS) {
+    if (verbose) message("Writing FCS files.\n")
     dir.create(FCS_dir, showWarnings = FALSE)
 
     # if multiple files in input, split into different FCS files
@@ -517,8 +531,10 @@ UnmixFile_MultiAF <- function(data, M, bg = NULL,
                                                      "_", unmixing, ".fcs"))
         )
     }
+    if (verbose) message("FCS files written.\n")
   }
 
+  if (verbose) message("Returning output.\n")
   # return output
   if (fullOutput) {
     M_out <- do.call(cbind, purrr::map(seq_along(M), function(i) {
